@@ -243,7 +243,7 @@ jobs:
         with:
           path: test-results/
       - run: node scripts/ci/generate-test-report.js
-      - uses: actions/github-script@v7
+      - uses: actions/github-script@v8
         if: github.event_name == 'pull_request'
         with:
           script: |
