@@ -30,6 +30,12 @@ tasks:
     cmds:
       - cargo build --release
 
+  build:server:
+    desc: 构建 Go 服务器二进制
+    dir: server
+    cmds:
+      - go build -o cmd/relay/relay cmd/relay/main.go
+
   build:vcp-agent:
     desc: 构建 VCP 插件
     dir: clients/plugins/vcp-agent

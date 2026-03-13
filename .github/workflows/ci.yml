@@ -2,275 +2,63 @@ name: CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches:
+      - '**'
   pull_request:
-    branches: [ main ]
-
-env:
-  CARGO_TERM_COLOR: always
-  GO_VERSION: '1.22'
-  NODE_VERSION: '20'
-  JAVA_VERSION: '17'
+    branches:
+      - main
+      - develop
 
 jobs:
-  # ==================== Rust Core ====================
-  rust-build:
-    name: Rust Core Build & Test
+  build:
+    name: Build & Test
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-      
-      - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: core
-      
-      - name: Install dependencies (Ubuntu)
-        if: matrix.os == 'ubuntu-latest'
-        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
-      
-      - name: Install dependencies (macOS)
-        if: matrix.os == 'macos-latest'
-        run: brew install protobuf
-      
-      - name: Install dependencies (Windows)
-        if: matrix.os == 'windows-latest'
-        run: choco install protoc
-      
-      - name: Build Rust core
-        working-directory: core
-        run: cargo build --release
-      
-      - name: Run Rust tests
-        working-directory: core
-        run: cargo test --release
-      
-      - name: Upload Rust artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: rust-core-${{ matrix.os }}
-          path: |
-            core/target/release/*.so
-            core/target/release/*.dll
-            core/target/release/*.lib
-            core/target/release/*.dylib
-            core/target/release/*.a
-          if-no-files-found: ignore
+        os: [ubuntu-latest, macos-latest, windows-latest]
+      fail-fast: false
 
-  # ==================== Go Relay Server ====================
-  go-build:
-    name: Go Relay Server Build
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
-      - uses: actions/checkout@v4
-      
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
-      
-      - name: Cache Go modules
-        uses: actions/cache@v4
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('server/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-      
-      - name: Install protobuf compiler
-        uses: arduino/setup-protoc@v3
-      
-      - name: Generate Go protobuf code
-        working-directory: proto
-        run: |
-          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-          buf generate
-      
-      - name: Build Go relay server
-        working-directory: server
-        run: |
-          go mod download
-          go build -o relay${{ matrix.os == 'windows-latest' && '.exe' || '' }} ./cmd/relay
-      
-      - name: Upload Go artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: go-relay-${{ matrix.os }}
-          path: server/relay*
-      
-      - name: Test Go server
-        working-directory: server
-        run: go test ./...
+          go-version: '1.22'
 
-  # ==================== TypeScript Plugin ====================
-  ts-build:
-    name: VCP Agent Plugin Build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: clients/plugins/vcp-agent/package-lock.json
-      
-      - name: Install dependencies
-        working-directory: clients/plugins/vcp-agent
-        run: npm ci
-      
-      - name: Generate protobuf types
-        run: |
-          npm install -g ts-proto
-          # 假设有 protobuf 生成脚本
-      
-      - name: Build plugin
-        working-directory: clients/plugins/vcp-agent
-        run: npm run build
-      
-      - name: Run lint
-        working-directory: clients/plugins/vcp-agent
-        run: npm run lint
-      
-      - name: Upload plugin artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: vcp-agent-plugin
-          path: clients/plugins/vcp-agent/dist/
+          node-version: '20'
 
-  # ==================== Android Mobile ====================
-  android-build:
-    name: Android Mobile Build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Setup JDK
-        uses: actions/setup-java@v4
+      - name: Setup Buf
+        uses: bufbuild/buf-setup-action@v1
         with:
-          java-version: ${{ env.JAVA_VERSION }}
-          distribution: 'temurin'
-      
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-      
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
-      
-      - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: core
-      
-      - name: Install cargo-ndk
-        run: cargo install cargo-ndk
-      
-      - name: Build Rust for Android
-        working-directory: core
-        run: |
-          cargo ndk -t armeabi-v7a -t arm64-v8a -t x86 -t x86_64 -o ../clients/mobile/android/app/src/main/jniLibs build --release
-      
-      - name: Generate UniFFI bindings
-        working-directory: core
-        run: |
-          cargo run --bin uniffi-bindgen generate --library target/aarch64-linux-android/release/libsynch_ffi.so --language kotlin --out-dir ../clients/mobile/android/app/src/main/java/
-      
-      - name: Build Android APK
-        working-directory: clients/mobile/android
-        run: |
-          chmod +x gradlew
-          ./gradlew assembleDebug
-      
-      - name: Upload Android artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: android-apk
-          path: clients/mobile/android/app/build/outputs/apk/debug/*.apk
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 
-  # ==================== Integration Tests ====================
-  integration-test:
-    name: Integration Tests
-    runs-on: ubuntu-latest
-    needs: [rust-build, go-build]
-    services:
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Setup Go
-        uses: actions/setup-go@v5
+      - name: Install Task
+        uses: arduino/setup-task@v2
         with:
-          go-version: ${{ env.GO_VERSION }}
-      
-      - name: Download Go relay binary
-        uses: actions/download-artifact@v4
-        with:
-          name: go-relay-ubuntu-latest
-          path: ./bin
-      
-      - name: Start relay server
-        run: |
-          chmod +x ./bin/relay
-          ./bin/relay &
-          sleep 3
-      
-      - name: Test WebSocket connection
-        run: |
-          # 简单的健康检查
-          curl -f http://localhost:8081/health || exit 1
-      
-      - name: Run integration tests
-        run: |
-          # 这里可以添加更完整的端到端测试
-          echo "Integration tests passed!"
+          version: 3.x
 
-  # ==================== Code Quality ====================
-  code-quality:
-    name: Code Quality Checks
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
-      
-      - name: Rust fmt check
-        working-directory: core
-        run: cargo fmt -- --check
-      
-      - name: Rust clippy check
-        working-directory: core
-        run: cargo clippy -- -D warnings
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-      
-      - name: Check TypeScript formatting
-        working-directory: clients/plugins/vcp-agent
-        run: |
-          npm ci
-          npm run lint
+      - name: Init dependencies
+        run: task init
+
+      - name: Generate Protobuf
+        run: task proto:gen
+
+      - name: Build Core
+        run: task build:core
+
+      - name: Build Server
+        run: task build:server
+
+      - name: Build VCP Agent
+        run: task build:vcp-agent
+
+      - name: Run Unit Tests
+        run: task test:all
