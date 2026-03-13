@@ -43,4 +43,4 @@ futures-util = "0.3"
 url = "2.5"
 
 # UniFFI
-uniffi = { version = "0.28", features = ["build"] }
+uniffi = { version = "0.31", features = ["build"] }
