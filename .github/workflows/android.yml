@@ -1,0 +1,68 @@
+name: Android CI
+
+on:
+  push:
+    branches: [ "main", "fix-ci-pipelines" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: gradle
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: aarch64-linux-android, armv7-linux-androideabi, i686-linux-android, x86_64-linux-android
+
+    - name: Install cargo-ndk
+      run: cargo install cargo-ndk
+
+    - name: Build Host Rust FFI (for binding generation)
+      run: |
+        cd core
+        cargo build --release --features uniffi-cli
+
+    - name: Generate UniFFI Bindings
+      run: |
+        cd core
+        # Use host binary/library to generate bindings
+        HOST_LIB=$(find target/release -name "libsynch_ffi.so" | head -n 1)
+        cargo run --features uniffi-cli --bin uniffi-bindgen generate \
+          --language kotlin \
+          --library $HOST_LIB \
+          --out-dir ../clients/mobile/android/app/src/main/java
+
+    - name: Build Rust FFI for Android Targets
+      run: |
+        cd core
+        # Define output dir for jniLibs
+        JNI_DIR=../clients/mobile/android/app/src/main/jniLibs
+        mkdir -p $JNI_DIR/arm64-v8a $JNI_DIR/armeabi-v7a $JNI_DIR/x86 $JNI_DIR/x86_64
+        
+        # Build for all common Android ABIs
+        cargo ndk -t arm64-v8a -t armeabi-v7a -t x86 -t x86_64 -o $JNI_DIR build --release
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x clients/mobile/android/gradlew
+
+    - name: Build with Gradle
+      run: |
+        cd clients/mobile/android
+        ./gradlew assembleDebug
+
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: synch-android-debug
+        path: clients/mobile/android/app/build/outputs/apk/debug/app-debug.apk
