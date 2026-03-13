@@ -1,0 +1,22 @@
+[package]
+name = "synch-crypto"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+ed25519-dalek = { workspace = true }
+x25519-dalek = { workspace = true }
+aes-gcm = { workspace = true }
+blake3 = { workspace = true }
+rand = { workspace = true }
+rand_core = { workspace = true }
+zeroize = { workspace = true }
+serde = { workspace = true }
+hex = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+chrono = { workspace = true }
+
+[dev-dependencies]

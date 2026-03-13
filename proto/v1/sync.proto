@@ -1,0 +1,217 @@
+// SYNCH 心契协议 — Vault 同步引擎
+// 包含：同步状态机、握手、Delta 传输、冲突检测
+syntax = "proto3";
+
+package synch.v1;
+
+option go_package = "synch/v1;synchv1";
+
+import "v1/crypto.proto";
+
+// ============================================================
+//  同步状态机 (Sync State Machine)
+// ============================================================
+
+// SyncState 对应架构文档中的同步状态图:
+//   IDLE → CONNECTING → AUTHENTICATING → SYNCING ⇄ SYNCED
+enum SyncState {
+  SYNC_STATE_UNSPECIFIED    = 0;
+  SYNC_STATE_IDLE           = 1;  // 断开，尚未连接
+  SYNC_STATE_CONNECTING     = 2;  // 正在建立 WebSocket/gRPC 连接
+  SYNC_STATE_AUTHENTICATING = 3;  // 已连接，正在进行身份验证
+  SYNC_STATE_SYNCING        = 4;  // 正在进行增量同步交换
+  SYNC_STATE_SYNCED         = 5;  // 同步完成，监听变更
+  SYNC_STATE_ERROR          = 6;  // 发生错误，等待恢复
+}
+
+// ============================================================
+//  同步消息信封 (Sync Message Envelope)
+// ============================================================
+
+// SyncMessage 是客户端与服务端之间的同步协议帧
+message SyncMessage {
+  oneof payload {
+    VaultHandshake    handshake = 1;
+    DeltaManifest     delta     = 2;
+    DeltaAck          ack       = 3;
+    ConflictDetected  conflict  = 4;
+    SyncProgress      progress  = 5;
+    PresenceUpdate    presence  = 6;
+  }
+}
+
+// ============================================================
+//  握手 (Vault Handshake)
+// ============================================================
+
+// VaultHandshake 用于同步开始前的版本协商
+message VaultHandshake {
+  // 要同步的 Vault ID
+  string vault_id = 1;
+
+  // 客户端已知的最新版本号
+  uint64 local_version = 2;
+
+  // 版本向量: node_id → 该节点已知的最大序号
+  map<string, uint64> version_vector = 3;
+
+  // 客户端支持的同步能力: "delta", "rsync", "full-snapshot" ...
+  repeated string capabilities = 4;
+
+  // 客户端节点 ID (用于服务端标识来源)
+  string node_id = 5;
+}
+
+// ============================================================
+//  Delta 传输 (Delta Transport)
+// ============================================================
+
+// DeltaManifest 描述一次增量同步批次
+message DeltaManifest {
+  // Vault ID
+  string vault_id = 1;
+
+  // 此批次的基线版本
+  uint64 base_version = 2;
+
+  // 目标版本
+  uint64 target_version = 3;
+
+  // 文件/条目级变更列表
+  repeated EntryChange changes = 4;
+
+  // 大文件分块引用
+  repeated BlockReference blocks = 5;
+
+  // 批次总字节数 (用于进度计算)
+  uint64 total_bytes = 6;
+
+  // 签名（用发送方私钥签署的 manifest 摘要）
+  Signature manifest_signature = 7;
+}
+
+// EntryChange 描述单个文件/条目的变更
+message EntryChange {
+  // 相对 Vault 根的路径 (如 "notes/daily/2026-03-12.md")
+  string path = 1;
+
+  // 变更操作类型
+  EntryOperation operation = 2;
+
+  // 变更后的内容哈希 (Blake3)
+  bytes content_hash = 3;
+
+  // 仅对 RENAME: 旧路径
+  string old_path = 4;
+
+  // 内联 delta 数据 (小文件直接嵌入)
+  bytes delta_bytes = 5;
+
+  // 块级引用 (大文件通过 BlockReference 传输)
+  repeated string block_hashes = 6;
+
+  // 文件大小 (bytes)
+  uint64 size = 7;
+
+  // 修改时间 (Unix epoch millis)
+  uint64 modified_at = 8;
+
+  // 此变更的版本向量条目: 哪个节点产生了此变更
+  string origin_node_id = 9;
+  uint64 origin_sequence = 10;
+}
+
+// EntryOperation 文件操作类型
+enum EntryOperation {
+  ENTRY_OPERATION_UNSPECIFIED = 0;
+  ENTRY_OPERATION_CREATE      = 1;
+  ENTRY_OPERATION_MODIFY      = 2;
+  ENTRY_OPERATION_DELETE      = 3;
+  ENTRY_OPERATION_RENAME      = 4;
+}
+
+// BlockReference 大文件分块引用
+message BlockReference {
+  // 块内容的 Blake3 哈希 (作为唯一标识)
+  bytes block_hash = 1;
+
+  // 块大小 (bytes)
+  uint32 size = 2;
+
+  // 块在原文件中的偏移量
+  uint64 offset = 3;
+
+  // 加密后的块数据 (传输时填充)
+  bytes encrypted_data = 4;
+}
+
+// ============================================================
+//  确认与进度 (Ack & Progress)
+// ============================================================
+
+// DeltaAck 确认接收并应用了 delta
+message DeltaAck {
+  string vault_id = 1;
+  uint64 acked_version = 2;
+  bool   success = 3;
+  string error_message = 4; // 若 success=false, 描述原因
+}
+
+// SyncProgress 报告同步进度
+message SyncProgress {
+  string vault_id = 1;
+  uint64 total_entries = 2;
+  uint64 completed_entries = 3;
+  uint64 total_bytes = 4;
+  uint64 transferred_bytes = 5;
+  SyncState current_state = 6;
+}
+
+// ============================================================
+//  冲突检测 (Conflict Detection)
+// ============================================================
+
+// ConflictDetected 当版本向量检测到并发修改时发送
+message ConflictDetected {
+  string vault_id = 1;
+  string path = 2;
+
+  // 本地版本信息
+  EntryChange local_version = 3;
+
+  // 远端版本信息
+  EntryChange remote_version = 4;
+
+  // 建议的解决策略
+  ConflictResolution suggested_resolution = 5;
+}
+
+// ConflictResolution 冲突解决方式
+enum ConflictResolution {
+  CONFLICT_RESOLUTION_UNSPECIFIED   = 0;
+  CONFLICT_RESOLUTION_KEEP_LOCAL    = 1;  // 保留本地
+  CONFLICT_RESOLUTION_KEEP_REMOTE   = 2;  // 保留远端
+  CONFLICT_RESOLUTION_MERGE         = 3;  // CRDT 自动合并
+  CONFLICT_RESOLUTION_MANUAL        = 4;  // 需要用户手动解决
+}
+
+// ============================================================
+//  在线状态 (Presence)
+// ============================================================
+
+// PresenceUpdate 广播节点在线状态
+message PresenceUpdate {
+  string node_id = 1;
+  PresenceStatus status = 2;
+  uint64 last_seen = 3; // Unix epoch millis
+  string active_vault_id = 4; // 当前活跃的 Vault (可选)
+}
+
+// PresenceStatus 在线状态
+enum PresenceStatus {
+  PRESENCE_STATUS_UNSPECIFIED = 0;
+  PRESENCE_STATUS_ONLINE      = 1;
+  PRESENCE_STATUS_AWAY        = 2;
+  PRESENCE_STATUS_BUSY        = 3;
+  PRESENCE_STATUS_OFFLINE     = 4;
+}

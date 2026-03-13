@@ -1,0 +1,11 @@
+version: v2
+plugins:
+  - remote: buf.build/protocolbuffers/go
+    out: ../server/pkg/proto
+    opt: paths=source_relative
+  - remote: buf.build/community/stephenh-ts-proto
+    out: ../shared/ts-core/src/proto
+    opt:
+      - env=browser
+      - esModuleInterop=true
+      - outputTypeRegistry=true

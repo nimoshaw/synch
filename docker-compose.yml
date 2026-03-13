@@ -1,0 +1,16 @@
+﻿version: \"3.8\"
+
+services:
+  synch-relay:
+    build:
+      context: ./server
+    ports:
+      - \"8080:8080\"
+      - \"8081:8081\"
+    environment:
+      - SYNCH_MODE=development
+    volumes:
+      - synch-data:/data
+
+volumes:
+  synch-data:

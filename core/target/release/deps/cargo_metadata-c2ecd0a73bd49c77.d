@@ -1,0 +1,11 @@
+D:\projects\synch\core\target\release\deps\cargo_metadata-c2ecd0a73bd49c77.d: C:\Users\nimo\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\cargo_metadata-0.15.4\src\lib.rs C:\Users\nimo\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\cargo_metadata-0.15.4\src\dependency.rs C:\Users\nimo\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\cargo_metadata-0.15.4\src\diagnostic.rs C:\Users\nimo\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\cargo_metadata-0.15.4\src\errors.rs C:\Users\nimo\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\cargo_metadata-0.15.4\src\messages.rs
+
+D:\projects\synch\core\target\release\deps\libcargo_metadata-c2ecd0a73bd49c77.rlib: C:\Users\nimo\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\cargo_metadata-0.15.4\src\lib.rs C:\Users\nimo\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\cargo_metadata-0.15.4\src\dependency.rs C:\Users\nimo\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\cargo_metadata-0.15.4\src\diagnostic.rs C:\Users\nimo\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\cargo_metadata-0.15.4\src\errors.rs C:\Users\nimo\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\cargo_metadata-0.15.4\src\messages.rs
+
+D:\projects\synch\core\target\release\deps\libcargo_metadata-c2ecd0a73bd49c77.rmeta: C:\Users\nimo\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\cargo_metadata-0.15.4\src\lib.rs C:\Users\nimo\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\cargo_metadata-0.15.4\src\dependency.rs C:\Users\nimo\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\cargo_metadata-0.15.4\src\diagnostic.rs C:\Users\nimo\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\cargo_metadata-0.15.4\src\errors.rs C:\Users\nimo\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\cargo_metadata-0.15.4\src\messages.rs
+
+C:\Users\nimo\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\cargo_metadata-0.15.4\src\lib.rs:
+C:\Users\nimo\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\cargo_metadata-0.15.4\src\dependency.rs:
+C:\Users\nimo\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\cargo_metadata-0.15.4\src\diagnostic.rs:
+C:\Users\nimo\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\cargo_metadata-0.15.4\src\errors.rs:
+C:\Users\nimo\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\cargo_metadata-0.15.4\src\messages.rs:

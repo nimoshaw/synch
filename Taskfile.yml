@@ -1,0 +1,48 @@
+# SYNCH 心契协议
+# version: v2.0-phase1
+
+version: '3'
+
+tasks:
+  default:
+    desc: 显示可用任务
+    cmds:
+      - task --list
+
+  init:
+    desc: 初始化开发环境 (Rust, Buf, Go, TS)
+    cmds:
+      - echo "Checking dependencies..."
+      - rustc --version
+      - go version
+      - node --version
+      - buf --version || echo "Buf not found, please install from https://buf.build"
+
+  proto:gen:
+    desc: 从 .proto 文件生成 Go, TS, Rust 契约代码
+    dir: proto
+    cmds:
+      - buf generate
+
+  build:core:
+    desc: 构建 Rust 核心库 (FFI 准备)
+    dir: core
+    cmds:
+      - cargo build --release
+
+  build:vcp-agent:
+    desc: 构建 VCP 插件
+    dir: clients/plugins/vcp-agent
+    cmds:
+      - npm install
+      - npm run build
+
+  relay:up:
+    desc: 启动本地中继服务器 (Docker)
+    cmds:
+      - docker compose up -d
+
+  test:all:
+    desc: 运行所有测试
+    cmds:
+      - echo "Running core, server and client tests..."

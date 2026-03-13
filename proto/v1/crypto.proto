@@ -1,0 +1,181 @@
+// SYNCH 心契协议 — 加密原语
+// 包含：密钥对、签名、加密载荷、密钥交换、Vault 密钥封装
+syntax = "proto3";
+
+package synch.v1;
+
+option go_package = "synch/v1;synchv1";
+
+// ============================================================
+//  密钥算法 (Key Algorithms)
+// ============================================================
+
+// KeyAlgorithm 支持的密钥/加密算法
+enum KeyAlgorithm {
+  KEY_ALGORITHM_UNSPECIFIED = 0;
+  KEY_ALGORITHM_ED25519     = 1;  // 数字签名 (身份)
+  KEY_ALGORITHM_X25519      = 2;  // 密钥交换 (ECDH)
+  KEY_ALGORITHM_AES_256_GCM = 3;  // 对称加密 (数据保护)
+  KEY_ALGORITHM_XCHACHA20   = 4;  // 对称加密 (备选)
+  KEY_ALGORITHM_ARGON2ID    = 5;  // 密码派生函数
+  KEY_ALGORITHM_BLAKE3      = 6;  // 哈希算法
+}
+
+// ============================================================
+//  密钥对 (Key Pair)
+// ============================================================
+
+// KeyPair 密钥对表示
+message KeyPair {
+  // 公钥 (Ed25519: 32 bytes, X25519: 32 bytes)
+  bytes public_key = 1;
+
+  // 加密后的私钥 (使用主密钥或密码派生密钥加密)
+  bytes encrypted_private_key = 2;
+
+  // 使用的算法
+  KeyAlgorithm algorithm = 3;
+
+  // 密钥创建时间 (Unix epoch millis)
+  uint64 created_at = 4;
+
+  // 密钥过期时间 (0 = 永不过期)
+  uint64 expires_at = 5;
+
+  // 密钥指纹 (Blake3(public_key)[0:8] 的十六进制表示)
+  string fingerprint = 6;
+}
+
+// ============================================================
+//  数字签名 (Signature)
+// ============================================================
+
+// Signature 对数据的 Ed25519 签名
+message Signature {
+  // 被签名的数据摘要 (通常为 Blake3 hash)
+  bytes data_hash = 1;
+
+  // 签名值 (Ed25519: 64 bytes)
+  bytes signature_bytes = 2;
+
+  // 签名者的公钥
+  bytes signer_public_key = 3;
+
+  // 签名时间
+  uint64 signed_at = 4;
+}
+
+// ============================================================
+//  加密载荷 (Encrypted Payload)
+// ============================================================
+
+// EncryptedPayload AES-256-GCM 加密的数据封装
+message EncryptedPayload {
+  // 密文
+  bytes ciphertext = 1;
+
+  // 随机数 / IV (AES-GCM: 12 bytes, XChaCha20: 24 bytes)
+  bytes nonce = 2;
+
+  // 发送方公钥 (用于接收方重建共享密钥)
+  bytes sender_public_key = 3;
+
+  // 使用的加密算法
+  KeyAlgorithm algorithm = 4;
+
+  // 附加认证数据 (AAD) 的哈希 (用于验证上下文)
+  bytes aad_hash = 5;
+}
+
+// ============================================================
+//  密钥交换 (Key Exchange — X25519 ECDH)
+// ============================================================
+
+// KeyExchangeRequest 发起方发送
+message KeyExchangeRequest {
+  // 发起方的临时 X25519 公钥
+  bytes ephemeral_public_key = 1;
+
+  // 发起方的身份公钥 (Ed25519, 用于验证)
+  bytes identity_public_key = 2;
+
+  // 对临时公钥的签名 (证明身份)
+  Signature identity_proof = 3;
+
+  // 请求时间
+  uint64 timestamp = 4;
+}
+
+// KeyExchangeResponse 响应方回复
+message KeyExchangeResponse {
+  // 响应方的临时 X25519 公钥
+  bytes ephemeral_public_key = 1;
+
+  // 响应方的身份公钥
+  bytes identity_public_key = 2;
+
+  // 对临时公钥的签名
+  Signature identity_proof = 3;
+
+  // 用共享密钥加密的确认消息
+  EncryptedPayload encrypted_confirmation = 4;
+}
+
+// ============================================================
+//  Vault 密钥封装 (Vault Key Wrapping)
+// ============================================================
+
+// VaultKey 描述一个 Vault 的加密密钥
+message VaultKey {
+  // 对应的 Vault ID
+  string vault_id = 1;
+
+  // 加密后的 Vault 数据密钥 (用设备密钥或用户主密钥封装)
+  bytes encrypted_key_material = 2;
+
+  // 封装使用的算法
+  KeyAlgorithm wrapping_algorithm = 3;
+
+  // 密钥版本 (轮换时递增)
+  uint32 key_version = 4;
+
+  // 密钥创建时间
+  uint64 created_at = 5;
+
+  // 封装者公钥 (知道是哪个密钥加密的)
+  bytes wrapped_by_public_key = 6;
+}
+
+// ============================================================
+//  心契证书 (Synch Certificate)
+// ============================================================
+
+// SynchCertificate 节点身份证书 — 由信任锚签发
+message SynchCertificate {
+  // 证书版本
+  uint32 version = 1;
+
+  // 证书持有者的公钥
+  bytes subject_public_key = 2;
+
+  // 持有者节点 ID
+  string subject_node_id = 3;
+
+  // 签发者公钥
+  bytes issuer_public_key = 4;
+
+  // 签发者对证书内容的签名
+  Signature issuer_signature = 5;
+
+  // 生效时间
+  uint64 valid_from = 6;
+
+  // 过期时间
+  uint64 valid_until = 7;
+
+  // 授予的能力列表
+  repeated string granted_capabilities = 8;
+
+  // 允许访问的 Vault ID 列表 (空 = 不限制)
+  repeated string allowed_vault_ids = 9;
+}
