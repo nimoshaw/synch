@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  relay:
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+    ports:
+      - "${SERVER_PORT:-8081}:8081"
+    env_file:
+      - ../config/dev.env
+    depends_on:
+      - redis
+    networks:
+      - synch_dev
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - synch_dev
+    volumes:
+      - redis_dev_data:/data
+
+networks:
+  synch_dev:
+    driver: bridge
+
+volumes:
+  redis_dev_data:

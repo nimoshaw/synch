@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  relay:
+    # Always pull a specific version tag for prod
+    image: ghcr.io/${GITHUB_REPOSITORY:-synch}/relay:${APP_VERSION:-v0.1.0}
+    ports:
+      - "8081:8081"
+    env_file:
+      - ../config/prod.env
+    networks:
+      - synch_prod
+    restart: always
+    deploy:
+      replicas: 3
+      update_config:
+        parallelism: 1
+        delay: 10s
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+
+  # In a real production environment, Redis would likely be managed (e.g., AWS ElastiCache).
+  # If using a local container, configuration would be handled securely here.
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    networks:
+      - synch_prod
+    volumes:
+      - redis_prod_data:/data
+    restart: always
+
+networks:
+  synch_prod:
+    driver: overlay
+
+volumes:
+  redis_prod_data:

@@ -215,50 +215,35 @@ jobs:
           name: android-apk
           path: clients/mobile/android/app/build/outputs/apk/debug/*.apk
 
-  # ==================== Integration Tests ====================
+  # ==================== Integration Tests (E2E) ====================
   integration-test:
-    name: Integration Tests
+    name: End-to-End Tests
     runs-on: ubuntu-latest
     needs: [rust-build, go-build]
-    services:
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
     steps:
       - uses: actions/checkout@v4
       
-      - name: Setup Go
-        uses: actions/setup-go@v5
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          go-version: ${{ env.GO_VERSION }}
-      
-      - name: Download Go relay binary
-        uses: actions/download-artifact@v4
+          node-version: ${{ env.NODE_VERSION }}
+          
+      - name: Install Task
+        uses: arduino/setup-task@v2
         with:
-          name: go-relay-ubuntu-latest
-          path: ./bin
-      
-      - name: Start relay server
-        run: |
-          chmod +x ./bin/relay
-          ./bin/relay &
-          sleep 3
-      
-      - name: Test WebSocket connection
-        run: |
-          # 简单的健康检查
-          curl -f http://localhost:8081/health || exit 1
-      
-      - name: Run integration tests
-        run: |
-          # 这里可以添加更完整的端到端测试
-          echo "Integration tests passed!"
+          version: 3.x
+          
+      - name: Run E2E tests
+        run: task test:e2e
+        
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        with:
+          fail_ci_if_error: false
+          directory: tests/e2e/coverage/
+
 
   # ==================== Code Quality ====================
   code-quality:

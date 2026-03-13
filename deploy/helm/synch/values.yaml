@@ -1,0 +1,31 @@
+replicaCount: 3
+
+image:
+  repository: ghcr.io/yourrepo/synch
+  pullPolicy: IfNotPresent
+  tag: "v0.1.0"
+
+service:
+  type: ClusterIP
+  port: 8081
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+
+redis:
+  enabled: true
+  architecture: replication
+  auth:
+    enabled: true
+    password: "change-this-in-production"
