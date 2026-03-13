@@ -89,6 +89,46 @@ terraform init
 terraform apply
 ```
 
+## 🌏 Platform Support Matrix
+
+| Platform | Component | Status | Install Method |
+| :--- | :--- | :--- | :--- |
+| **Android** | Client SDK / App | ✅ Stable | APK, AAR |
+| **Linux** | Relay Server | ✅ Stable | Binary, `install-server.sh`, Docker |
+| **Docker** | Full Stack | ✅ Stable | Docker Compose |
+| **Windows** | Server | 🛠️ In Progress | Binary (.exe) |
+| **Windows** | Desktop Client | 📅 Planned | MSI Installer (Wix) |
+| **iOS** | Client SDK | 📅 Planned | XCFramework |
+| **macOS** | Desktop Client | 📅 Planned | .dmg / Homebrew |
+
+---
+
+## 🚀 Installation Methods
+
+### 1. Linux One-Liner (Recommended)
+The fastest way to deploy a production-ready server on Linux:
+```bash
+curl -sSL https://raw.githubusercontent.com/nimoshaw/synch/main/deploy/scripts/install-server.sh | sudo bash
+```
+This script performs the following:
+- Detects architecture (amd64/arm64).
+- Creates a dedicated `synch` system user.
+- Downloads the latest statically-linked binary.
+- Sets up a `systemd` service with automatic restart.
+- Creates `/etc/synch/.env` template for configuration.
+
+### 2. Docker Compose
+Ideal for quick evaluations or multi-component setups:
+```bash
+docker compose up -d
+```
+Config files are located in `deploy/docker/`.
+
+### 3. Android APK
+Direct downloads are available for testing on real devices. The APK includes both `arm64-v8a` and `armeabi-v7a` support for maximum compatibility.
+
+---
+
 ## 🔐 Environment Variables Reference
 | Variable | Description | Default |
 |----------|-------------|---------|
@@ -96,3 +136,8 @@ terraform apply
 | `SYNCH_WS_PORT` | Port for WebSocket connections | `8081` |
 | `SYNCH_REDIS_URL` | Redis connection string | `redis://localhost:6379` |
 | `SYNCH_LOG_LEVEL` | Logging verbosity | `info` |
+
+## 🛠️ Maintenance & Troubleshooting
+- **Logs**: `journalctl -u synch-relay -f`
+- **Health Check**: `curl http://localhost:8080/health`
+- **Config**: `/etc/synch/.env`

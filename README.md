@@ -39,9 +39,11 @@ graph TD
 
 - `core/`: Rust 核心引擎
 - `server/`: Go 中继服务端
-- `clients/`: 各种客户端实现
+- `clients/`: 各种客户端实现 (Android, Plugins, etc.)
+- `packaging/`: 平台特定打包与分发配置
 - `proto/`: Protobuf 协议定义
 - `docs/`: 详细文档与设计 (ADR)
+- `deploy/`: 部署脚本与 Docker 配置
 - `tests/`: E2E 与集成测试
 
 ## 🚀 快速开始
@@ -70,23 +72,20 @@ task proto:gen
 
 ### 4. 部署与安装 (Deployment)
 
-#### 🐳 Docker (推荐)
-对于大多数用户，我们推荐使用 Docker Compose 快速启动：
+#### 🐧 Linux 一键安装
+对于 Linux 生产环境，我们推荐使用自动化安装脚本：
 ```bash
-# 启动包含 Redis 的完整环境
+curl -sSL https://raw.githubusercontent.com/nimoshaw/synch/main/deploy/scripts/install-server.sh | sudo bash
+```
+*该脚本将自动下载二进制、配置 systemd 服务并引导环境设置。*
+
+#### 🐳 Docker (推荐)
+对于容器化部署，运行以下命令即可启动：
+```bash
+# 一键启动包含 Redis 的完整环境
 docker-compose up -d
 ```
 *服务端将运行在 `8080` (API) 和 `8081` (WebSocket) 端口。*
-
-#### 🐧 Linux 二进制
-如果您更倾向于直接在 Linux 上运行：
-1. **下载二进制文件**: 从 [Releases](https://github.com/nimoshaw/synch/releases) 获取针对 Linux 的版本。
-2. **运行服务**:
-   ```bash
-   chmod +x synch-relay
-   ./synch-relay
-   ```
-   *(请确保您的环境中已运行 Redis)*
 
 > 详细的部署指南（包括 systemd 配置、环境变量及多环境部署）请参考 [DEPLOYMENT.md](docs/DEPLOYMENT.md)。
 

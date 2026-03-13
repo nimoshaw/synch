@@ -153,9 +153,10 @@ jobs:
         env:
           GOOS: ${{ contains(matrix.target, 'windows') && 'windows' || contains(matrix.target, 'darwin') && 'darwin' || 'linux' }}
           GOARCH: ${{ contains(matrix.target, 'arm64') && 'arm64' || 'amd64' }}
+          CGO_ENABLED: 0
         run: |
           go mod download
-          task build:server
+          go build -ldflags "-s -w" -o relay${{ matrix.ext }} ./cmd/relay
 
       - name: Package artifact
         shell: bash
@@ -210,17 +211,17 @@ jobs:
         run: |
           cargo run --bin uniffi-bindgen generate --library target/aarch64-linux-android/release/libsynch_ffi.so --language kotlin --out-dir ../clients/mobile/android/app/src/main/java/
 
-      - name: Build AAR
+      - name: Build APK (Release)
         working-directory: clients/mobile/android
         run: |
           chmod +x gradlew
           ./gradlew assembleRelease
 
-      - name: Upload AAR
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: android-aar
-          path: clients/mobile/android/app/build/outputs/aar/*.aar
+          name: android-apk
+          path: clients/mobile/android/app/build/outputs/apk/release/*.apk
 
   # ==================== Create Release ====================
   release:
@@ -260,6 +261,8 @@ jobs:
           files: |
             artifacts/**/*.tar.gz
             artifacts/**/*.aar
+            artifacts/**/*.apk
+            deploy/scripts/install-server.sh
           draft: false
           prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
         env:

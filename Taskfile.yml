@@ -64,6 +64,22 @@ tasks:
       - go run cmd/relay/main.go -addr :8080 -log debug
 
 
+
+  dist:android:
+    desc: 构建 Android APK 安装包 (Release)
+    dir: clients/mobile/android
+    cmds:
+      - ./gradlew assembleRelease
+      - echo "APK generated in clients/mobile/android/app/build/outputs/apk/release/"
+
+  dist:linux:
+    desc: 打包 Linux 服务端 (静态二进制 + 安装脚本)
+    dir: server
+    cmds:
+      - CGO_ENABLED=0 go build -ldflags "-s -w" -o ../dist/synch-relay ./cmd/relay
+      - cp ../deploy/scripts/install-server.sh ../dist/
+      - echo "Linux distribution assets prepared in dist/"
+
   test:all:
     desc: 运行所有测试
     cmds:
