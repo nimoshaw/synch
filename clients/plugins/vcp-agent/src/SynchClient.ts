@@ -1,3 +1,5 @@
+import { SyncMessage } from "../../../../shared/ts-core/src/proto/v1/sync";
+
 type ConnectionState = "disconnected" | "connecting" | "connected" | "reconnecting";
 
 class SynchClient {
@@ -53,8 +55,14 @@ class SynchClient {
       };
 
       this.ws.onmessage = async (event) => {
-        console.log("[SynchClient] Received message, size:", event.data.byteLength);
-        // Handled via protobuf in real implementation
+        const data = new Uint8Array(event.data);
+        console.log("[SynchClient] Received message, size:", data.byteLength);
+        try {
+            const syncMsg = SyncMessage.decode(data);
+            this.handleMessage(syncMsg, data);
+        } catch (e) {
+            console.error("[SynchClient] Failed to decode message:", e);
+        }
       };
     } catch (e) {
       console.error("[SynchClient] Failed to create WebSocket:", e);
@@ -99,6 +107,33 @@ class SynchClient {
   public subscribe(listener: () => void) {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
+  }
+
+  private handleMessage(msg: SyncMessage, _raw: Uint8Array) {
+    console.log(`[SynchClient] Processing message from ${msg.senderId}`);
+    
+    // 1. Handle Handshake
+    if (msg.handshake) {
+        console.log("[SynchClient] Received handshake from", msg.handshake.nodeId);
+    }
+    
+    // 2. Handle Presence
+    if (msg.presence) {
+        console.log("[SynchClient] Presence update for", msg.presence.nodeId);
+    }
+
+    // 3. Handle Secured (E2EE) messages - This is where the Agent Loop starts
+    if (msg.secured) {
+        console.log("[SynchClient] Received secured message, forwarding to Intelligence Loop");
+        // To be implemented: decrypt and send to LLM
+    }
+  }
+
+  public send(msg: SyncMessage) {
+    if (this.ws && this.state === 'connected') {
+        const data = SyncMessage.encode(msg).finish();
+        this.ws.send(data);
+    }
   }
 
   private notify() {
