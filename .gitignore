@@ -54,3 +54,14 @@ coverage/
 *.profraw
 *.profdata
 
+# Protobuf temp files
+temp.proto
+
+# BadgerDB local data
+badger_data/
+
+# Taskfile backups
+Taskfile_copy.txt
+
+# Antigravity agent state
+.antigravity/

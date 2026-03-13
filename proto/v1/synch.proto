@@ -4,6 +4,8 @@ syntax = "proto3";
 
 package synch.v1;
 
+import "v1/crypto.proto";
+
 option go_package = "synch/v1;synchv1";
 
 // ============================================================
@@ -18,6 +20,20 @@ enum NodeType {
   NODE_TYPE_BRIDGE      = 3;   // 协议转换、外部系统对接
   NODE_TYPE_PLUGIN      = 4;   // 宿主环境插件 (vcp-agent, openclaw-agent)
   NODE_TYPE_MOBILE      = 5;   // 移动端 App (Android/iOS)
+  NODE_TYPE_ADMIN       = 6;   // 网络管理员 (全局)
+  NODE_TYPE_LORD        = 7;   // 节点领主 (单节点最高权限)
+  NODE_TYPE_SUB_ADMIN   = 8;   // 次级管理员 (管事)
+}
+
+// PerceptionLevel 定义节点的感知层级 (动态隐私设置)
+enum PerceptionLevel {
+  option allow_alias = true;
+  PERCEPTION_LEVEL_UNSPECIFIED = 0;
+  PERCEPTION_LEVEL_L0          = 0; // 完全公开: 广播完整公钥+历史契约摘要
+  PERCEPTION_LEVEL_L1          = 1; // 社交轮廓: 广播昵称+能力+信誉摘要
+  PERCEPTION_LEVEL_L2          = 2; // 能力橱窗: 广播能力标签，无身份 (默认)
+  PERCEPTION_LEVEL_L3          = 3; // 影子模式: 广播加密指纹，无元数据
+  PERCEPTION_LEVEL_L4          = 4; // 完全隐形: 不广播，仅响应已知契约
 }
 
 // NodeIdentity 描述网络中的一个节点身份
@@ -153,3 +169,80 @@ enum MobileSyncPolicy {
   MOBILE_SYNC_POLICY_WIFI_ONLY   = 2;  // 仅在 Wi-Fi 下同步
   MOBILE_SYNC_POLICY_MANUAL      = 3;  // 手动触发
 }
+
+// ============================================================
+//  契约系统 (Contract System)
+// ============================================================
+
+// ContractStatus 契约生命周期状态
+enum ContractStatus {
+  CONTRACT_STATUS_UNSPECIFIED = 0;
+  CONTRACT_STATUS_PENDING     = 1;  // 等待握手确认
+  CONTRACT_STATUS_ACTIVE      = 2;  // 活跃，正常通讯
+  CONTRACT_STATUS_SUSPENDED   = 3;  // 已挂起，暂时屏蔽消息
+  CONTRACT_STATUS_EXPIRING    = 4;  // 即将过期，需续期
+  CONTRACT_STATUS_TERMINATED  = 5;  // 已终止，密钥失效
+}
+
+// Contract 节点间的交互契约
+message Contract {
+  // 契约唯一 ID: Blake3(req_pk + target_pk + timestamp)[0:16]
+  string contract_id = 1;
+
+  // 发起方公钥 (Ed25519)
+  bytes requester_id = 2;
+
+  // 目标方公钥 (Ed25519)
+  bytes target_id = 3;
+
+  // 授权的能力列表
+  repeated string capabilities = 4;
+
+  // 契约创建时间
+  uint64 created_at = 5;
+
+  // 契约过期时间 (0 = 永不过期)
+  uint64 expires_at = 6;
+
+  // 续期策略: "auto", "prompt", "expire"
+  string renewal_policy = 7;
+
+  // 契约当前状态
+  ContractStatus status = 8;
+
+  // 发起方签名 (证明意愿)
+  bytes requester_signature = 9;
+
+  // 目标方签名 (完成握手)
+  bytes target_signature = 10;
+
+  // 发起方配置的首选中继节点 URLs (如 ["wss://relay-a.local", "wss://public.synch"])
+  repeated string requester_relays = 11;
+
+  // 目标方配置的首选中继节点 URLs
+  repeated string target_relays = 12;
+}
+
+// ============================================================
+//  加密通讯载荷 (Secured Messaging)
+// ============================================================
+
+// SecuredMessage 经过 E2EE 转换的消息封装
+message SecuredMessage {
+  // 关联的契约 ID
+  string contract_id = 1;
+
+  // 发送者指纹 (L2+ 感知层下解耦身份)
+  string sender_fingerprint = 2;
+
+  // 消息层级加密载荷 (AES-256-GCM)
+  EncryptedPayload payload = 3;
+
+  // 消息发送时间
+  uint64 timestamp = 4;
+
+  // 签名 (由发送方 identity 签名 header || payload)
+  bytes signature = 5;
+}
+
+

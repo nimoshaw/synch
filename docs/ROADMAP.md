@@ -8,6 +8,7 @@
 - [x] CI/CD Pipeline for automated testing and releases.
 
 ## 🚀 v0.2.0 - Federation & Resilience
+- [ ] **Multi-Relay Topology**: Nodes can join multiple relays; agents reject new contracts on non-primary (secondary/guest) relays (See ADR-002).
 - [ ] **Federation Protocol**: Support for multiple inter-connected relay servers.
 - [ ] **Persistence Layer**: Pluggable storage backends (PostgreSQL, SQLite, S3).
 - [ ] **Enhanced Conflict Resolution**: Better handling of concurrent delta updates.

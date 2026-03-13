@@ -13,6 +13,9 @@ pub enum NodeType {
     Bridge,
     Plugin,
     Mobile,
+    Admin,
+    Lord,
+    SubAdmin,
 }
 
 impl std::fmt::Display for NodeType {
@@ -24,6 +27,9 @@ impl std::fmt::Display for NodeType {
             NodeType::Bridge => write!(f, "bridge"),
             NodeType::Plugin => write!(f, "plugin"),
             NodeType::Mobile => write!(f, "mobile"),
+            NodeType::Admin => write!(f, "admin"),
+            NodeType::Lord => write!(f, "lord"),
+            NodeType::SubAdmin => write!(f, "sub-admin"),
         }
     }
 }
@@ -99,6 +105,9 @@ impl NodeIdentity {
             NodeType::Bridge => "bridge",
             NodeType::Plugin => "plugin",
             NodeType::Mobile => "mobile",
+            NodeType::Admin => "admin",
+            NodeType::Lord => "lord",
+            NodeType::SubAdmin => "subadmin",
             NodeType::Unspecified => "node",
         };
         let node_id = format!("{}://{}", prefix, fingerprint);

@@ -34,6 +34,9 @@ const (
 	NodeType_NODE_TYPE_BRIDGE      NodeType = 3 // 协议转换、外部系统对接
 	NodeType_NODE_TYPE_PLUGIN      NodeType = 4 // 宿主环境插件 (vcp-agent, openclaw-agent)
 	NodeType_NODE_TYPE_MOBILE      NodeType = 5 // 移动端 App (Android/iOS)
+	NodeType_NODE_TYPE_ADMIN       NodeType = 6 // 网络管理员 (全局)
+	NodeType_NODE_TYPE_LORD        NodeType = 7 // 节点领主 (单节点最高权限)
+	NodeType_NODE_TYPE_SUB_ADMIN   NodeType = 8 // 次级管理员 (管事)
 )
 
 // Enum value maps for NodeType.
@@ -45,6 +48,9 @@ var (
 		3: "NODE_TYPE_BRIDGE",
 		4: "NODE_TYPE_PLUGIN",
 		5: "NODE_TYPE_MOBILE",
+		6: "NODE_TYPE_ADMIN",
+		7: "NODE_TYPE_LORD",
+		8: "NODE_TYPE_SUB_ADMIN",
 	}
 	NodeType_value = map[string]int32{
 		"NODE_TYPE_UNSPECIFIED": 0,
@@ -53,6 +59,9 @@ var (
 		"NODE_TYPE_BRIDGE":      3,
 		"NODE_TYPE_PLUGIN":      4,
 		"NODE_TYPE_MOBILE":      5,
+		"NODE_TYPE_ADMIN":       6,
+		"NODE_TYPE_LORD":        7,
+		"NODE_TYPE_SUB_ADMIN":   8,
 	}
 )
 
@@ -81,6 +90,65 @@ func (x NodeType) Number() protoreflect.EnumNumber {
 // Deprecated: Use NodeType.Descriptor instead.
 func (NodeType) EnumDescriptor() ([]byte, []int) {
 	return file_v1_synch_proto_rawDescGZIP(), []int{0}
+}
+
+// PerceptionLevel 定义节点的感知层级 (动态隐私设置)
+type PerceptionLevel int32
+
+const (
+	PerceptionLevel_PERCEPTION_LEVEL_UNSPECIFIED PerceptionLevel = 0
+	PerceptionLevel_PERCEPTION_LEVEL_L0          PerceptionLevel = 0 // 完全公开: 广播完整公钥+历史契约摘要
+	PerceptionLevel_PERCEPTION_LEVEL_L1          PerceptionLevel = 1 // 社交轮廓: 广播昵称+能力+信誉摘要
+	PerceptionLevel_PERCEPTION_LEVEL_L2          PerceptionLevel = 2 // 能力橱窗: 广播能力标签，无身份 (默认)
+	PerceptionLevel_PERCEPTION_LEVEL_L3          PerceptionLevel = 3 // 影子模式: 广播加密指纹，无元数据
+	PerceptionLevel_PERCEPTION_LEVEL_L4          PerceptionLevel = 4 // 完全隐形: 不广播，仅响应已知契约
+)
+
+// Enum value maps for PerceptionLevel.
+var (
+	PerceptionLevel_name = map[int32]string{
+		0: "PERCEPTION_LEVEL_UNSPECIFIED",
+		// Duplicate value: 0: "PERCEPTION_LEVEL_L0",
+		1: "PERCEPTION_LEVEL_L1",
+		2: "PERCEPTION_LEVEL_L2",
+		3: "PERCEPTION_LEVEL_L3",
+		4: "PERCEPTION_LEVEL_L4",
+	}
+	PerceptionLevel_value = map[string]int32{
+		"PERCEPTION_LEVEL_UNSPECIFIED": 0,
+		"PERCEPTION_LEVEL_L0":          0,
+		"PERCEPTION_LEVEL_L1":          1,
+		"PERCEPTION_LEVEL_L2":          2,
+		"PERCEPTION_LEVEL_L3":          3,
+		"PERCEPTION_LEVEL_L4":          4,
+	}
+)
+
+func (x PerceptionLevel) Enum() *PerceptionLevel {
+	p := new(PerceptionLevel)
+	*p = x
+	return p
+}
+
+func (x PerceptionLevel) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (PerceptionLevel) Descriptor() protoreflect.EnumDescriptor {
+	return file_v1_synch_proto_enumTypes[1].Descriptor()
+}
+
+func (PerceptionLevel) Type() protoreflect.EnumType {
+	return &file_v1_synch_proto_enumTypes[1]
+}
+
+func (x PerceptionLevel) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use PerceptionLevel.Descriptor instead.
+func (PerceptionLevel) EnumDescriptor() ([]byte, []int) {
+	return file_v1_synch_proto_rawDescGZIP(), []int{1}
 }
 
 // ServerRole 标识客户端与服务端的关系
@@ -120,11 +188,11 @@ func (x ServerRole) String() string {
 }
 
 func (ServerRole) Descriptor() protoreflect.EnumDescriptor {
-	return file_v1_synch_proto_enumTypes[1].Descriptor()
+	return file_v1_synch_proto_enumTypes[2].Descriptor()
 }
 
 func (ServerRole) Type() protoreflect.EnumType {
-	return &file_v1_synch_proto_enumTypes[1]
+	return &file_v1_synch_proto_enumTypes[2]
 }
 
 func (x ServerRole) Number() protoreflect.EnumNumber {
@@ -133,7 +201,7 @@ func (x ServerRole) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ServerRole.Descriptor instead.
 func (ServerRole) EnumDescriptor() ([]byte, []int) {
-	return file_v1_synch_proto_rawDescGZIP(), []int{1}
+	return file_v1_synch_proto_rawDescGZIP(), []int{2}
 }
 
 // PermissionLevel 标识对 Vault 的操作权限
@@ -173,11 +241,11 @@ func (x PermissionLevel) String() string {
 }
 
 func (PermissionLevel) Descriptor() protoreflect.EnumDescriptor {
-	return file_v1_synch_proto_enumTypes[2].Descriptor()
+	return file_v1_synch_proto_enumTypes[3].Descriptor()
 }
 
 func (PermissionLevel) Type() protoreflect.EnumType {
-	return &file_v1_synch_proto_enumTypes[2]
+	return &file_v1_synch_proto_enumTypes[3]
 }
 
 func (x PermissionLevel) Number() protoreflect.EnumNumber {
@@ -186,7 +254,7 @@ func (x PermissionLevel) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use PermissionLevel.Descriptor instead.
 func (PermissionLevel) EnumDescriptor() ([]byte, []int) {
-	return file_v1_synch_proto_rawDescGZIP(), []int{2}
+	return file_v1_synch_proto_rawDescGZIP(), []int{3}
 }
 
 // ConflictStrategy 冲突解决策略枚举
@@ -226,11 +294,11 @@ func (x ConflictStrategy) String() string {
 }
 
 func (ConflictStrategy) Descriptor() protoreflect.EnumDescriptor {
-	return file_v1_synch_proto_enumTypes[3].Descriptor()
+	return file_v1_synch_proto_enumTypes[4].Descriptor()
 }
 
 func (ConflictStrategy) Type() protoreflect.EnumType {
-	return &file_v1_synch_proto_enumTypes[3]
+	return &file_v1_synch_proto_enumTypes[4]
 }
 
 func (x ConflictStrategy) Number() protoreflect.EnumNumber {
@@ -239,7 +307,7 @@ func (x ConflictStrategy) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ConflictStrategy.Descriptor instead.
 func (ConflictStrategy) EnumDescriptor() ([]byte, []int) {
-	return file_v1_synch_proto_rawDescGZIP(), []int{3}
+	return file_v1_synch_proto_rawDescGZIP(), []int{4}
 }
 
 // MobileSyncPolicy 移动端同步策略
@@ -279,11 +347,11 @@ func (x MobileSyncPolicy) String() string {
 }
 
 func (MobileSyncPolicy) Descriptor() protoreflect.EnumDescriptor {
-	return file_v1_synch_proto_enumTypes[4].Descriptor()
+	return file_v1_synch_proto_enumTypes[5].Descriptor()
 }
 
 func (MobileSyncPolicy) Type() protoreflect.EnumType {
-	return &file_v1_synch_proto_enumTypes[4]
+	return &file_v1_synch_proto_enumTypes[5]
 }
 
 func (x MobileSyncPolicy) Number() protoreflect.EnumNumber {
@@ -292,7 +360,66 @@ func (x MobileSyncPolicy) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use MobileSyncPolicy.Descriptor instead.
 func (MobileSyncPolicy) EnumDescriptor() ([]byte, []int) {
-	return file_v1_synch_proto_rawDescGZIP(), []int{4}
+	return file_v1_synch_proto_rawDescGZIP(), []int{5}
+}
+
+// ContractStatus 契约生命周期状态
+type ContractStatus int32
+
+const (
+	ContractStatus_CONTRACT_STATUS_UNSPECIFIED ContractStatus = 0
+	ContractStatus_CONTRACT_STATUS_PENDING     ContractStatus = 1 // 等待握手确认
+	ContractStatus_CONTRACT_STATUS_ACTIVE      ContractStatus = 2 // 活跃，正常通讯
+	ContractStatus_CONTRACT_STATUS_SUSPENDED   ContractStatus = 3 // 已挂起，暂时屏蔽消息
+	ContractStatus_CONTRACT_STATUS_EXPIRING    ContractStatus = 4 // 即将过期，需续期
+	ContractStatus_CONTRACT_STATUS_TERMINATED  ContractStatus = 5 // 已终止，密钥失效
+)
+
+// Enum value maps for ContractStatus.
+var (
+	ContractStatus_name = map[int32]string{
+		0: "CONTRACT_STATUS_UNSPECIFIED",
+		1: "CONTRACT_STATUS_PENDING",
+		2: "CONTRACT_STATUS_ACTIVE",
+		3: "CONTRACT_STATUS_SUSPENDED",
+		4: "CONTRACT_STATUS_EXPIRING",
+		5: "CONTRACT_STATUS_TERMINATED",
+	}
+	ContractStatus_value = map[string]int32{
+		"CONTRACT_STATUS_UNSPECIFIED": 0,
+		"CONTRACT_STATUS_PENDING":     1,
+		"CONTRACT_STATUS_ACTIVE":      2,
+		"CONTRACT_STATUS_SUSPENDED":   3,
+		"CONTRACT_STATUS_EXPIRING":    4,
+		"CONTRACT_STATUS_TERMINATED":  5,
+	}
+)
+
+func (x ContractStatus) Enum() *ContractStatus {
+	p := new(ContractStatus)
+	*p = x
+	return p
+}
+
+func (x ContractStatus) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ContractStatus) Descriptor() protoreflect.EnumDescriptor {
+	return file_v1_synch_proto_enumTypes[6].Descriptor()
+}
+
+func (ContractStatus) Type() protoreflect.EnumType {
+	return &file_v1_synch_proto_enumTypes[6]
+}
+
+func (x ContractStatus) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ContractStatus.Descriptor instead.
+func (ContractStatus) EnumDescriptor() ([]byte, []int) {
+	return file_v1_synch_proto_rawDescGZIP(), []int{6}
 }
 
 // NodeIdentity 描述网络中的一个节点身份
@@ -705,11 +832,238 @@ func (x *SyncConfig) GetMobileSyncPolicy() MobileSyncPolicy {
 	return MobileSyncPolicy_MOBILE_SYNC_POLICY_UNSPECIFIED
 }
 
+// Contract 节点间的交互契约
+type Contract struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// 契约唯一 ID: Blake3(req_pk + target_pk + timestamp)[0:16]
+	ContractId string `protobuf:"bytes,1,opt,name=contract_id,json=contractId,proto3" json:"contract_id,omitempty"`
+	// 发起方公钥 (Ed25519)
+	RequesterId []byte `protobuf:"bytes,2,opt,name=requester_id,json=requesterId,proto3" json:"requester_id,omitempty"`
+	// 目标方公钥 (Ed25519)
+	TargetId []byte `protobuf:"bytes,3,opt,name=target_id,json=targetId,proto3" json:"target_id,omitempty"`
+	// 授权的能力列表
+	Capabilities []string `protobuf:"bytes,4,rep,name=capabilities,proto3" json:"capabilities,omitempty"`
+	// 契约创建时间
+	CreatedAt uint64 `protobuf:"varint,5,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// 契约过期时间 (0 = 永不过期)
+	ExpiresAt uint64 `protobuf:"varint,6,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	// 续期策略: "auto", "prompt", "expire"
+	RenewalPolicy string `protobuf:"bytes,7,opt,name=renewal_policy,json=renewalPolicy,proto3" json:"renewal_policy,omitempty"`
+	// 契约当前状态
+	Status ContractStatus `protobuf:"varint,8,opt,name=status,proto3,enum=synch.v1.ContractStatus" json:"status,omitempty"`
+	// 发起方签名 (证明意愿)
+	RequesterSignature []byte `protobuf:"bytes,9,opt,name=requester_signature,json=requesterSignature,proto3" json:"requester_signature,omitempty"`
+	// 目标方签名 (完成握手)
+	TargetSignature []byte `protobuf:"bytes,10,opt,name=target_signature,json=targetSignature,proto3" json:"target_signature,omitempty"`
+	// 发起方配置的首选中继节点 URLs (如 ["wss://relay-a.local", "wss://public.synch"])
+	RequesterRelays []string `protobuf:"bytes,11,rep,name=requester_relays,json=requesterRelays,proto3" json:"requester_relays,omitempty"`
+	// 目标方配置的首选中继节点 URLs
+	TargetRelays  []string `protobuf:"bytes,12,rep,name=target_relays,json=targetRelays,proto3" json:"target_relays,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Contract) Reset() {
+	*x = Contract{}
+	mi := &file_v1_synch_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Contract) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Contract) ProtoMessage() {}
+
+func (x *Contract) ProtoReflect() protoreflect.Message {
+	mi := &file_v1_synch_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Contract.ProtoReflect.Descriptor instead.
+func (*Contract) Descriptor() ([]byte, []int) {
+	return file_v1_synch_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *Contract) GetContractId() string {
+	if x != nil {
+		return x.ContractId
+	}
+	return ""
+}
+
+func (x *Contract) GetRequesterId() []byte {
+	if x != nil {
+		return x.RequesterId
+	}
+	return nil
+}
+
+func (x *Contract) GetTargetId() []byte {
+	if x != nil {
+		return x.TargetId
+	}
+	return nil
+}
+
+func (x *Contract) GetCapabilities() []string {
+	if x != nil {
+		return x.Capabilities
+	}
+	return nil
+}
+
+func (x *Contract) GetCreatedAt() uint64 {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return 0
+}
+
+func (x *Contract) GetExpiresAt() uint64 {
+	if x != nil {
+		return x.ExpiresAt
+	}
+	return 0
+}
+
+func (x *Contract) GetRenewalPolicy() string {
+	if x != nil {
+		return x.RenewalPolicy
+	}
+	return ""
+}
+
+func (x *Contract) GetStatus() ContractStatus {
+	if x != nil {
+		return x.Status
+	}
+	return ContractStatus_CONTRACT_STATUS_UNSPECIFIED
+}
+
+func (x *Contract) GetRequesterSignature() []byte {
+	if x != nil {
+		return x.RequesterSignature
+	}
+	return nil
+}
+
+func (x *Contract) GetTargetSignature() []byte {
+	if x != nil {
+		return x.TargetSignature
+	}
+	return nil
+}
+
+func (x *Contract) GetRequesterRelays() []string {
+	if x != nil {
+		return x.RequesterRelays
+	}
+	return nil
+}
+
+func (x *Contract) GetTargetRelays() []string {
+	if x != nil {
+		return x.TargetRelays
+	}
+	return nil
+}
+
+// SecuredMessage 经过 E2EE 转换的消息封装
+type SecuredMessage struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// 关联的契约 ID
+	ContractId string `protobuf:"bytes,1,opt,name=contract_id,json=contractId,proto3" json:"contract_id,omitempty"`
+	// 发送者指纹 (L2+ 感知层下解耦身份)
+	SenderFingerprint string `protobuf:"bytes,2,opt,name=sender_fingerprint,json=senderFingerprint,proto3" json:"sender_fingerprint,omitempty"`
+	// 消息层级加密载荷 (AES-256-GCM)
+	Payload *EncryptedPayload `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
+	// 消息发送时间
+	Timestamp uint64 `protobuf:"varint,4,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	// 签名 (由发送方 identity 签名 header || payload)
+	Signature     []byte `protobuf:"bytes,5,opt,name=signature,proto3" json:"signature,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SecuredMessage) Reset() {
+	*x = SecuredMessage{}
+	mi := &file_v1_synch_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SecuredMessage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SecuredMessage) ProtoMessage() {}
+
+func (x *SecuredMessage) ProtoReflect() protoreflect.Message {
+	mi := &file_v1_synch_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SecuredMessage.ProtoReflect.Descriptor instead.
+func (*SecuredMessage) Descriptor() ([]byte, []int) {
+	return file_v1_synch_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *SecuredMessage) GetContractId() string {
+	if x != nil {
+		return x.ContractId
+	}
+	return ""
+}
+
+func (x *SecuredMessage) GetSenderFingerprint() string {
+	if x != nil {
+		return x.SenderFingerprint
+	}
+	return ""
+}
+
+func (x *SecuredMessage) GetPayload() *EncryptedPayload {
+	if x != nil {
+		return x.Payload
+	}
+	return nil
+}
+
+func (x *SecuredMessage) GetTimestamp() uint64 {
+	if x != nil {
+		return x.Timestamp
+	}
+	return 0
+}
+
+func (x *SecuredMessage) GetSignature() []byte {
+	if x != nil {
+		return x.Signature
+	}
+	return nil
+}
+
 var File_v1_synch_proto protoreflect.FileDescriptor
 
 const file_v1_synch_proto_rawDesc = "" +
 	"\n" +
-	"\x0ev1/synch.proto\x12\bsynch.v1\"\xa4\x03\n" +
+	"\x0ev1/synch.proto\x12\bsynch.v1\x1a\x0fv1/crypto.proto\"\xa4\x03\n" +
 	"\fNodeIdentity\x12\x17\n" +
 	"\anode_id\x18\x01 \x01(\tR\x06nodeId\x12\x1d\n" +
 	"\n" +
@@ -749,14 +1103,48 @@ const file_v1_synch_proto_rawDesc = "" +
 	"SyncConfig\x12G\n" +
 	"\x11conflict_strategy\x18\x01 \x01(\x0e2\x1a.synch.v1.ConflictStrategyR\x10conflictStrategy\x120\n" +
 	"\x14bandwidth_limit_kbps\x18\x02 \x01(\rR\x12bandwidthLimitKbps\x12H\n" +
-	"\x12mobile_sync_policy\x18\x03 \x01(\x0e2\x1a.synch.v1.MobileSyncPolicyR\x10mobileSyncPolicy*\x91\x01\n" +
+	"\x12mobile_sync_policy\x18\x03 \x01(\x0e2\x1a.synch.v1.MobileSyncPolicyR\x10mobileSyncPolicy\"\xd2\x03\n" +
+	"\bContract\x12\x1f\n" +
+	"\vcontract_id\x18\x01 \x01(\tR\n" +
+	"contractId\x12!\n" +
+	"\frequester_id\x18\x02 \x01(\fR\vrequesterId\x12\x1b\n" +
+	"\ttarget_id\x18\x03 \x01(\fR\btargetId\x12\"\n" +
+	"\fcapabilities\x18\x04 \x03(\tR\fcapabilities\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\x05 \x01(\x04R\tcreatedAt\x12\x1d\n" +
+	"\n" +
+	"expires_at\x18\x06 \x01(\x04R\texpiresAt\x12%\n" +
+	"\x0erenewal_policy\x18\a \x01(\tR\rrenewalPolicy\x120\n" +
+	"\x06status\x18\b \x01(\x0e2\x18.synch.v1.ContractStatusR\x06status\x12/\n" +
+	"\x13requester_signature\x18\t \x01(\fR\x12requesterSignature\x12)\n" +
+	"\x10target_signature\x18\n" +
+	" \x01(\fR\x0ftargetSignature\x12)\n" +
+	"\x10requester_relays\x18\v \x03(\tR\x0frequesterRelays\x12#\n" +
+	"\rtarget_relays\x18\f \x03(\tR\ftargetRelays\"\xd2\x01\n" +
+	"\x0eSecuredMessage\x12\x1f\n" +
+	"\vcontract_id\x18\x01 \x01(\tR\n" +
+	"contractId\x12-\n" +
+	"\x12sender_fingerprint\x18\x02 \x01(\tR\x11senderFingerprint\x124\n" +
+	"\apayload\x18\x03 \x01(\v2\x1a.synch.v1.EncryptedPayloadR\apayload\x12\x1c\n" +
+	"\ttimestamp\x18\x04 \x01(\x04R\ttimestamp\x12\x1c\n" +
+	"\tsignature\x18\x05 \x01(\fR\tsignature*\xd3\x01\n" +
 	"\bNodeType\x12\x19\n" +
 	"\x15NODE_TYPE_UNSPECIFIED\x10\x00\x12\x13\n" +
 	"\x0fNODE_TYPE_AGENT\x10\x01\x12\x13\n" +
 	"\x0fNODE_TYPE_HUMAN\x10\x02\x12\x14\n" +
 	"\x10NODE_TYPE_BRIDGE\x10\x03\x12\x14\n" +
 	"\x10NODE_TYPE_PLUGIN\x10\x04\x12\x14\n" +
-	"\x10NODE_TYPE_MOBILE\x10\x05*t\n" +
+	"\x10NODE_TYPE_MOBILE\x10\x05\x12\x13\n" +
+	"\x0fNODE_TYPE_ADMIN\x10\x06\x12\x12\n" +
+	"\x0eNODE_TYPE_LORD\x10\a\x12\x17\n" +
+	"\x13NODE_TYPE_SUB_ADMIN\x10\b*\xb4\x01\n" +
+	"\x0fPerceptionLevel\x12 \n" +
+	"\x1cPERCEPTION_LEVEL_UNSPECIFIED\x10\x00\x12\x17\n" +
+	"\x13PERCEPTION_LEVEL_L0\x10\x00\x12\x17\n" +
+	"\x13PERCEPTION_LEVEL_L1\x10\x01\x12\x17\n" +
+	"\x13PERCEPTION_LEVEL_L2\x10\x02\x12\x17\n" +
+	"\x13PERCEPTION_LEVEL_L3\x10\x03\x12\x17\n" +
+	"\x13PERCEPTION_LEVEL_L4\x10\x04\x1a\x02\x10\x01*t\n" +
 	"\n" +
 	"ServerRole\x12\x1b\n" +
 	"\x17SERVER_ROLE_UNSPECIFIED\x10\x00\x12\x17\n" +
@@ -777,7 +1165,14 @@ const file_v1_synch_proto_rawDesc = "" +
 	"\x1eMOBILE_SYNC_POLICY_UNSPECIFIED\x10\x00\x12\x1d\n" +
 	"\x19MOBILE_SYNC_POLICY_ALWAYS\x10\x01\x12 \n" +
 	"\x1cMOBILE_SYNC_POLICY_WIFI_ONLY\x10\x02\x12\x1d\n" +
-	"\x19MOBILE_SYNC_POLICY_MANUAL\x10\x03B\x12Z\x10synch/v1;synchv1b\x06proto3"
+	"\x19MOBILE_SYNC_POLICY_MANUAL\x10\x03*\xc7\x01\n" +
+	"\x0eContractStatus\x12\x1f\n" +
+	"\x1bCONTRACT_STATUS_UNSPECIFIED\x10\x00\x12\x1b\n" +
+	"\x17CONTRACT_STATUS_PENDING\x10\x01\x12\x1a\n" +
+	"\x16CONTRACT_STATUS_ACTIVE\x10\x02\x12\x1d\n" +
+	"\x19CONTRACT_STATUS_SUSPENDED\x10\x03\x12\x1c\n" +
+	"\x18CONTRACT_STATUS_EXPIRING\x10\x04\x12\x1e\n" +
+	"\x1aCONTRACT_STATUS_TERMINATED\x10\x05B\x12Z\x10synch/v1;synchv1b\x06proto3"
 
 var (
 	file_v1_synch_proto_rawDescOnce sync.Once
@@ -791,39 +1186,46 @@ func file_v1_synch_proto_rawDescGZIP() []byte {
 	return file_v1_synch_proto_rawDescData
 }
 
-var file_v1_synch_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
-var file_v1_synch_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_v1_synch_proto_enumTypes = make([]protoimpl.EnumInfo, 7)
+var file_v1_synch_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_v1_synch_proto_goTypes = []any{
-	(NodeType)(0),           // 0: synch.v1.NodeType
-	(ServerRole)(0),         // 1: synch.v1.ServerRole
-	(PermissionLevel)(0),    // 2: synch.v1.PermissionLevel
-	(ConflictStrategy)(0),   // 3: synch.v1.ConflictStrategy
-	(MobileSyncPolicy)(0),   // 4: synch.v1.MobileSyncPolicy
-	(*NodeIdentity)(nil),    // 5: synch.v1.NodeIdentity
-	(*ServerEndpoint)(nil),  // 6: synch.v1.ServerEndpoint
-	(*VaultPermission)(nil), // 7: synch.v1.VaultPermission
-	(*ClientProfile)(nil),   // 8: synch.v1.ClientProfile
-	(*SyncConfig)(nil),      // 9: synch.v1.SyncConfig
-	nil,                     // 10: synch.v1.NodeIdentity.MetadataEntry
-	nil,                     // 11: synch.v1.ServerEndpoint.VaultAccessEntry
+	(NodeType)(0),            // 0: synch.v1.NodeType
+	(PerceptionLevel)(0),     // 1: synch.v1.PerceptionLevel
+	(ServerRole)(0),          // 2: synch.v1.ServerRole
+	(PermissionLevel)(0),     // 3: synch.v1.PermissionLevel
+	(ConflictStrategy)(0),    // 4: synch.v1.ConflictStrategy
+	(MobileSyncPolicy)(0),    // 5: synch.v1.MobileSyncPolicy
+	(ContractStatus)(0),      // 6: synch.v1.ContractStatus
+	(*NodeIdentity)(nil),     // 7: synch.v1.NodeIdentity
+	(*ServerEndpoint)(nil),   // 8: synch.v1.ServerEndpoint
+	(*VaultPermission)(nil),  // 9: synch.v1.VaultPermission
+	(*ClientProfile)(nil),    // 10: synch.v1.ClientProfile
+	(*SyncConfig)(nil),       // 11: synch.v1.SyncConfig
+	(*Contract)(nil),         // 12: synch.v1.Contract
+	(*SecuredMessage)(nil),   // 13: synch.v1.SecuredMessage
+	nil,                      // 14: synch.v1.NodeIdentity.MetadataEntry
+	nil,                      // 15: synch.v1.ServerEndpoint.VaultAccessEntry
+	(*EncryptedPayload)(nil), // 16: synch.v1.EncryptedPayload
 }
 var file_v1_synch_proto_depIdxs = []int32{
 	0,  // 0: synch.v1.NodeIdentity.node_type:type_name -> synch.v1.NodeType
-	10, // 1: synch.v1.NodeIdentity.metadata:type_name -> synch.v1.NodeIdentity.MetadataEntry
-	1,  // 2: synch.v1.ServerEndpoint.role:type_name -> synch.v1.ServerRole
-	11, // 3: synch.v1.ServerEndpoint.vault_access:type_name -> synch.v1.ServerEndpoint.VaultAccessEntry
-	2,  // 4: synch.v1.VaultPermission.level:type_name -> synch.v1.PermissionLevel
-	5,  // 5: synch.v1.ClientProfile.identity:type_name -> synch.v1.NodeIdentity
-	6,  // 6: synch.v1.ClientProfile.servers:type_name -> synch.v1.ServerEndpoint
-	9,  // 7: synch.v1.ClientProfile.sync_config:type_name -> synch.v1.SyncConfig
-	3,  // 8: synch.v1.SyncConfig.conflict_strategy:type_name -> synch.v1.ConflictStrategy
-	4,  // 9: synch.v1.SyncConfig.mobile_sync_policy:type_name -> synch.v1.MobileSyncPolicy
-	7,  // 10: synch.v1.ServerEndpoint.VaultAccessEntry.value:type_name -> synch.v1.VaultPermission
-	11, // [11:11] is the sub-list for method output_type
-	11, // [11:11] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	14, // 1: synch.v1.NodeIdentity.metadata:type_name -> synch.v1.NodeIdentity.MetadataEntry
+	2,  // 2: synch.v1.ServerEndpoint.role:type_name -> synch.v1.ServerRole
+	15, // 3: synch.v1.ServerEndpoint.vault_access:type_name -> synch.v1.ServerEndpoint.VaultAccessEntry
+	3,  // 4: synch.v1.VaultPermission.level:type_name -> synch.v1.PermissionLevel
+	7,  // 5: synch.v1.ClientProfile.identity:type_name -> synch.v1.NodeIdentity
+	8,  // 6: synch.v1.ClientProfile.servers:type_name -> synch.v1.ServerEndpoint
+	11, // 7: synch.v1.ClientProfile.sync_config:type_name -> synch.v1.SyncConfig
+	4,  // 8: synch.v1.SyncConfig.conflict_strategy:type_name -> synch.v1.ConflictStrategy
+	5,  // 9: synch.v1.SyncConfig.mobile_sync_policy:type_name -> synch.v1.MobileSyncPolicy
+	6,  // 10: synch.v1.Contract.status:type_name -> synch.v1.ContractStatus
+	16, // 11: synch.v1.SecuredMessage.payload:type_name -> synch.v1.EncryptedPayload
+	9,  // 12: synch.v1.ServerEndpoint.VaultAccessEntry.value:type_name -> synch.v1.VaultPermission
+	13, // [13:13] is the sub-list for method output_type
+	13, // [13:13] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
 func init() { file_v1_synch_proto_init() }
@@ -831,13 +1233,14 @@ func file_v1_synch_proto_init() {
 	if File_v1_synch_proto != nil {
 		return
 	}
+	file_v1_crypto_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_v1_synch_proto_rawDesc), len(file_v1_synch_proto_rawDesc)),
-			NumEnums:      5,
-			NumMessages:   7,
+			NumEnums:      7,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

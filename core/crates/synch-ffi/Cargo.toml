@@ -18,7 +18,10 @@ serde_json = { workspace = true }
 thiserror = { workspace = true }
 anyhow = { workspace = true }
 hex = { workspace = true }
-
+tokio = { workspace = true }
+tokio-tungstenite = { workspace = true }
+futures-util = { workspace = true }
+url = { workspace = true }
 [build-dependencies]
 uniffi = { workspace = true, features = ["build"] }
 

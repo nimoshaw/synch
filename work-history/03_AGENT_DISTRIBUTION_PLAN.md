@@ -1,4 +1,4 @@
-# Synch 项目全平台分发与安装打包规划 (Multi-Platform Distribution Plan)
+# 03. Synch 项目全平台分发与安装打包规划 (Multi-Platform Distribution Plan)
 
 为了实现「全平台覆盖、一键安装、架构可延续」的目标，本项目建立了一套可扩展的分发体系。该体系不仅解决当前的 Android、Linux 和 Docker 需求，还为后续的 Windows、iOS 及其他各种安装包提供了标准化的路径。
 
@@ -14,7 +14,7 @@
 
 ---
 
-## 🚀 第一阶段：移动端全覆盖 (Mobile Distribution)
+## 01. 🚀 第一阶段：移动端全覆盖 (Mobile Distribution)
 
 ### 1. Android (APK & AAR)
 - **APK 分发**：生成 Universal APK，集成到 GitHub Releases。
@@ -27,7 +27,7 @@
 
 ---
 
-## 💻 第二阶段：桌面端与服务端 (Desktop & Server)
+## 02. 💻 第二阶段：桌面端与服务端 (Desktop & Server)
 
 ### 1. Linux (Server)
 - **分发方式**：提供静态编译二进制文件 + `install-server.sh` 一键安装脚本。
@@ -39,7 +39,7 @@
 
 ---
 
-## 🐋 第三阶段：云原生部署 (Docker & Cloud)
+## 03. 🐋 第三阶段：云原生部署 (Docker & Cloud)
 
 - **容器分发**：镜像推送到 `ghcr.io/synch/relay`，用户无需本地构建。
 - **极简部署**：用户只需运行 `docker compose up -d` 即可。

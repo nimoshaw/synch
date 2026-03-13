@@ -262,9 +262,17 @@ type EncryptedPayload struct {
 	// 使用的加密算法
 	Algorithm KeyAlgorithm `protobuf:"varint,4,opt,name=algorithm,proto3,enum=synch.v1.KeyAlgorithm" json:"algorithm,omitempty"`
 	// 附加认证数据 (AAD) 的哈希 (用于验证上下文)
-	AadHash       []byte `protobuf:"bytes,5,opt,name=aad_hash,json=aadHash,proto3" json:"aad_hash,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	AadHash []byte `protobuf:"bytes,5,opt,name=aad_hash,json=aadHash,proto3" json:"aad_hash,omitempty"`
+	// 关联的契约 ID (可选，用于 E2EE 消息)
+	ContractId string `protobuf:"bytes,6,opt,name=contract_id,json=contractId,proto3" json:"contract_id,omitempty"`
+	// 棘轮序列号 (用于前向保密)
+	RatchetSeq uint32 `protobuf:"varint,7,opt,name=ratchet_seq,json=ratchetSeq,proto3" json:"ratchet_seq,omitempty"`
+	// 发送方的当前棘轮公钥 (用于 DH 棘轮)
+	RatchetKey []byte `protobuf:"bytes,8,opt,name=ratchet_key,json=ratchetKey,proto3" json:"ratchet_key,omitempty"`
+	// 上一条发送链的消息数量 (用于接收端同步)
+	PrevChainLength uint32 `protobuf:"varint,9,opt,name=prev_chain_length,json=prevChainLength,proto3" json:"prev_chain_length,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *EncryptedPayload) Reset() {
@@ -330,6 +338,34 @@ func (x *EncryptedPayload) GetAadHash() []byte {
 		return x.AadHash
 	}
 	return nil
+}
+
+func (x *EncryptedPayload) GetContractId() string {
+	if x != nil {
+		return x.ContractId
+	}
+	return ""
+}
+
+func (x *EncryptedPayload) GetRatchetSeq() uint32 {
+	if x != nil {
+		return x.RatchetSeq
+	}
+	return 0
+}
+
+func (x *EncryptedPayload) GetRatchetKey() []byte {
+	if x != nil {
+		return x.RatchetKey
+	}
+	return nil
+}
+
+func (x *EncryptedPayload) GetPrevChainLength() uint32 {
+	if x != nil {
+		return x.PrevChainLength
+	}
+	return 0
 }
 
 // KeyExchangeRequest 发起方发送
@@ -706,7 +742,7 @@ const file_v1_crypto_proto_rawDesc = "" +
 	"\tdata_hash\x18\x01 \x01(\fR\bdataHash\x12'\n" +
 	"\x0fsignature_bytes\x18\x02 \x01(\fR\x0esignatureBytes\x12*\n" +
 	"\x11signer_public_key\x18\x03 \x01(\fR\x0fsignerPublicKey\x12\x1b\n" +
-	"\tsigned_at\x18\x04 \x01(\x04R\bsignedAt\"\xc5\x01\n" +
+	"\tsigned_at\x18\x04 \x01(\x04R\bsignedAt\"\xd4\x02\n" +
 	"\x10EncryptedPayload\x12\x1e\n" +
 	"\n" +
 	"ciphertext\x18\x01 \x01(\fR\n" +
@@ -714,7 +750,14 @@ const file_v1_crypto_proto_rawDesc = "" +
 	"\x05nonce\x18\x02 \x01(\fR\x05nonce\x12*\n" +
 	"\x11sender_public_key\x18\x03 \x01(\fR\x0fsenderPublicKey\x124\n" +
 	"\talgorithm\x18\x04 \x01(\x0e2\x16.synch.v1.KeyAlgorithmR\talgorithm\x12\x19\n" +
-	"\baad_hash\x18\x05 \x01(\fR\aaadHash\"\xd0\x01\n" +
+	"\baad_hash\x18\x05 \x01(\fR\aaadHash\x12\x1f\n" +
+	"\vcontract_id\x18\x06 \x01(\tR\n" +
+	"contractId\x12\x1f\n" +
+	"\vratchet_seq\x18\a \x01(\rR\n" +
+	"ratchetSeq\x12\x1f\n" +
+	"\vratchet_key\x18\b \x01(\fR\n" +
+	"ratchetKey\x12*\n" +
+	"\x11prev_chain_length\x18\t \x01(\rR\x0fprevChainLength\"\xd0\x01\n" +
 	"\x12KeyExchangeRequest\x120\n" +
 	"\x14ephemeral_public_key\x18\x01 \x01(\fR\x12ephemeralPublicKey\x12.\n" +
 	"\x13identity_public_key\x18\x02 \x01(\fR\x11identityPublicKey\x12:\n" +

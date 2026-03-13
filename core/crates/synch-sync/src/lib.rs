@@ -10,6 +10,10 @@ pub mod error;
 pub mod version_vector;
 pub mod delta;
 pub mod vault;
+pub mod handshake;
+pub mod contract_manager;
+pub mod secure;
+pub mod net;
 
 pub use error::SyncError;
 pub use version_vector::VersionVector;

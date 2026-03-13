@@ -128,6 +128,14 @@ export interface EncryptedPayload {
   algorithm: KeyAlgorithm;
   /** 附加认证数据 (AAD) 的哈希 (用于验证上下文) */
   aadHash: Uint8Array;
+  /** 关联的契约 ID (可选，用于 E2EE 消息) */
+  contractId: string;
+  /** 棘轮序列号 (用于前向保密) */
+  ratchetSeq: number;
+  /** 发送方的当前棘轮公钥 (用于 DH 棘轮) */
+  ratchetKey: Uint8Array;
+  /** 上一条发送链的消息数量 (用于接收端同步) */
+  prevChainLength: number;
 }
 
 /** KeyExchangeRequest 发起方发送 */
@@ -514,6 +522,10 @@ function createBaseEncryptedPayload(): EncryptedPayload {
     senderPublicKey: new Uint8Array(0),
     algorithm: 0,
     aadHash: new Uint8Array(0),
+    contractId: "",
+    ratchetSeq: 0,
+    ratchetKey: new Uint8Array(0),
+    prevChainLength: 0,
   };
 }
 
@@ -535,6 +547,18 @@ export const EncryptedPayload: MessageFns<EncryptedPayload, "synch.v1.EncryptedP
     }
     if (message.aadHash.length !== 0) {
       writer.uint32(42).bytes(message.aadHash);
+    }
+    if (message.contractId !== "") {
+      writer.uint32(50).string(message.contractId);
+    }
+    if (message.ratchetSeq !== 0) {
+      writer.uint32(56).uint32(message.ratchetSeq);
+    }
+    if (message.ratchetKey.length !== 0) {
+      writer.uint32(66).bytes(message.ratchetKey);
+    }
+    if (message.prevChainLength !== 0) {
+      writer.uint32(72).uint32(message.prevChainLength);
     }
     return writer;
   },
@@ -586,6 +610,38 @@ export const EncryptedPayload: MessageFns<EncryptedPayload, "synch.v1.EncryptedP
           message.aadHash = reader.bytes();
           continue;
         }
+        case 6: {
+          if (tag !== 50) {
+            break;
+          }
+
+          message.contractId = reader.string();
+          continue;
+        }
+        case 7: {
+          if (tag !== 56) {
+            break;
+          }
+
+          message.ratchetSeq = reader.uint32();
+          continue;
+        }
+        case 8: {
+          if (tag !== 66) {
+            break;
+          }
+
+          message.ratchetKey = reader.bytes();
+          continue;
+        }
+        case 9: {
+          if (tag !== 72) {
+            break;
+          }
+
+          message.prevChainLength = reader.uint32();
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -611,6 +667,26 @@ export const EncryptedPayload: MessageFns<EncryptedPayload, "synch.v1.EncryptedP
         : isSet(object.aad_hash)
         ? bytesFromBase64(object.aad_hash)
         : new Uint8Array(0),
+      contractId: isSet(object.contractId)
+        ? globalThis.String(object.contractId)
+        : isSet(object.contract_id)
+        ? globalThis.String(object.contract_id)
+        : "",
+      ratchetSeq: isSet(object.ratchetSeq)
+        ? globalThis.Number(object.ratchetSeq)
+        : isSet(object.ratchet_seq)
+        ? globalThis.Number(object.ratchet_seq)
+        : 0,
+      ratchetKey: isSet(object.ratchetKey)
+        ? bytesFromBase64(object.ratchetKey)
+        : isSet(object.ratchet_key)
+        ? bytesFromBase64(object.ratchet_key)
+        : new Uint8Array(0),
+      prevChainLength: isSet(object.prevChainLength)
+        ? globalThis.Number(object.prevChainLength)
+        : isSet(object.prev_chain_length)
+        ? globalThis.Number(object.prev_chain_length)
+        : 0,
     };
   },
 
@@ -631,6 +707,18 @@ export const EncryptedPayload: MessageFns<EncryptedPayload, "synch.v1.EncryptedP
     if (message.aadHash.length !== 0) {
       obj.aadHash = base64FromBytes(message.aadHash);
     }
+    if (message.contractId !== "") {
+      obj.contractId = message.contractId;
+    }
+    if (message.ratchetSeq !== 0) {
+      obj.ratchetSeq = Math.round(message.ratchetSeq);
+    }
+    if (message.ratchetKey.length !== 0) {
+      obj.ratchetKey = base64FromBytes(message.ratchetKey);
+    }
+    if (message.prevChainLength !== 0) {
+      obj.prevChainLength = Math.round(message.prevChainLength);
+    }
     return obj;
   },
 
@@ -644,6 +732,10 @@ export const EncryptedPayload: MessageFns<EncryptedPayload, "synch.v1.EncryptedP
     message.senderPublicKey = object.senderPublicKey ?? new Uint8Array(0);
     message.algorithm = object.algorithm ?? 0;
     message.aadHash = object.aadHash ?? new Uint8Array(0);
+    message.contractId = object.contractId ?? "";
+    message.ratchetSeq = object.ratchetSeq ?? 0;
+    message.ratchetKey = object.ratchetKey ?? new Uint8Array(0);
+    message.prevChainLength = object.prevChainLength ?? 0;
     return message;
   },
 };

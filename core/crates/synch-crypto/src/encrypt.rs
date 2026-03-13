@@ -13,8 +13,14 @@ pub struct EncryptedPayload {
     pub ciphertext: Vec<u8>,
     /// 12-byte nonce
     pub nonce: Vec<u8>,
-    /// Optional sender public key (for ECDH-derived keys)
+    /// Optional sender public key (identity or original exchange key)
     pub sender_public_key: Option<Vec<u8>>,
+    /// Current DH ratchet public key
+    pub ratchet_key: Option<Vec<u8>>,
+    /// Current chain sequence number
+    pub ratchet_seq: u32,
+    /// Previous chain length
+    pub prev_chain_length: u32,
 }
 
 /// SealedBox provides high-level authenticated encryption with associated data (AAD).
@@ -80,7 +86,41 @@ pub fn encrypt_aes_gcm(
         ciphertext,
         nonce: nonce.to_vec(),
         sender_public_key: None,
+        ratchet_key: None,
+        ratchet_seq: 0,
+        prev_chain_length: 0,
     })
+}
+
+/// High-level encryption using Double Ratchet
+pub fn encrypt_ratchet(
+    ratchet: &mut crate::ratchet::DoubleRatchet,
+    plaintext: &[u8],
+    aad: Option<&[u8]>,
+) -> Result<EncryptedPayload, CryptoError> {
+    let (mk, ratchet_key, seq, prev) = ratchet.send();
+    let mut payload = encrypt_aes_gcm(&mk, plaintext, aad)?;
+    payload.ratchet_key = Some(ratchet_key.to_vec());
+    payload.ratchet_seq = seq;
+    payload.prev_chain_length = prev;
+    Ok(payload)
+}
+
+/// High-level decryption using Double Ratchet
+pub fn decrypt_ratchet(
+    ratchet: &mut crate::ratchet::DoubleRatchet,
+    payload: &EncryptedPayload,
+    aad: Option<&[u8]>,
+) -> Result<Vec<u8>, CryptoError> {
+    let ratchet_key = payload.ratchet_key.as_ref().ok_or(CryptoError::Encryption("Missing ratchet key".into()))?;
+    if ratchet_key.len() != 32 {
+        return Err(CryptoError::InvalidKeyLength { expected: 32, got: ratchet_key.len() });
+    }
+    let mut rk = [0u8; 32];
+    rk.copy_from_slice(ratchet_key);
+
+    let mk = ratchet.receive(rk, payload.ratchet_seq, payload.prev_chain_length)?;
+    decrypt_aes_gcm(&mk, payload, aad)
 }
 
 /// Decrypt AES-256-GCM encrypted payload.

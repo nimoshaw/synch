@@ -8,6 +8,16 @@
 import { BinaryReader, BinaryWriter } from "@bufbuild/protobuf/wire";
 import { messageTypeRegistry } from "../typeRegistry";
 import { Signature } from "./crypto";
+import {
+  Contract,
+  NodeType,
+  nodeTypeFromJSON,
+  nodeTypeToJSON,
+  PerceptionLevel,
+  perceptionLevelFromJSON,
+  perceptionLevelToJSON,
+  SecuredMessage,
+} from "./synch";
 
 export const protobufPackage = "synch.v1";
 
@@ -254,12 +264,22 @@ export interface SyncMessage {
   $type: "synch.v1.SyncMessage";
   /** 逻辑发送方 ID (当通过 Plugin 中继时使用) */
   senderId: string;
+  /** 逻辑接收方 ID (用于定向路由) */
+  targetId: string;
   handshake?: VaultHandshake | undefined;
   delta?: DeltaManifest | undefined;
   ack?: DeltaAck | undefined;
   conflict?: ConflictDetected | undefined;
   progress?: SyncProgress | undefined;
-  presence?: PresenceUpdate | undefined;
+  presence?:
+    | PresenceUpdate
+    | undefined;
+  /** 加密通讯载荷 (E2EE) */
+  secured?:
+    | SecuredMessage
+    | undefined;
+  /** 契约握手/提交 */
+  contractSubmission?: Contract | undefined;
 }
 
 /** VaultHandshake 用于同步开始前的版本协商 */
@@ -275,6 +295,8 @@ export interface VaultHandshake {
   capabilities: string[];
   /** 客户端节点 ID (用于服务端标识来源) */
   nodeId: string;
+  /** 节点类型 (用于权限校验) */
+  nodeType: NodeType;
 }
 
 export interface VaultHandshake_VersionVectorEntry {
@@ -386,18 +408,25 @@ export interface PresenceUpdate {
   lastSeen: number;
   /** 当前活跃的 Vault (可选) */
   activeVaultId: string;
+  /** 感知层级 */
+  perceptionLevel: PerceptionLevel;
+  /** 节点当前的首选中继节点 URLs */
+  preferredRelays: string[];
 }
 
 function createBaseSyncMessage(): SyncMessage {
   return {
     $type: "synch.v1.SyncMessage",
     senderId: "",
+    targetId: "",
     handshake: undefined,
     delta: undefined,
     ack: undefined,
     conflict: undefined,
     progress: undefined,
     presence: undefined,
+    secured: undefined,
+    contractSubmission: undefined,
   };
 }
 
@@ -407,6 +436,9 @@ export const SyncMessage: MessageFns<SyncMessage, "synch.v1.SyncMessage"> = {
   encode(message: SyncMessage, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.senderId !== "") {
       writer.uint32(58).string(message.senderId);
+    }
+    if (message.targetId !== "") {
+      writer.uint32(66).string(message.targetId);
     }
     if (message.handshake !== undefined) {
       VaultHandshake.encode(message.handshake, writer.uint32(10).fork()).join();
@@ -426,6 +458,12 @@ export const SyncMessage: MessageFns<SyncMessage, "synch.v1.SyncMessage"> = {
     if (message.presence !== undefined) {
       PresenceUpdate.encode(message.presence, writer.uint32(50).fork()).join();
     }
+    if (message.secured !== undefined) {
+      SecuredMessage.encode(message.secured, writer.uint32(82).fork()).join();
+    }
+    if (message.contractSubmission !== undefined) {
+      Contract.encode(message.contractSubmission, writer.uint32(90).fork()).join();
+    }
     return writer;
   },
 
@@ -442,6 +480,14 @@ export const SyncMessage: MessageFns<SyncMessage, "synch.v1.SyncMessage"> = {
           }
 
           message.senderId = reader.string();
+          continue;
+        }
+        case 8: {
+          if (tag !== 66) {
+            break;
+          }
+
+          message.targetId = reader.string();
           continue;
         }
         case 1: {
@@ -492,6 +538,22 @@ export const SyncMessage: MessageFns<SyncMessage, "synch.v1.SyncMessage"> = {
           message.presence = PresenceUpdate.decode(reader, reader.uint32());
           continue;
         }
+        case 10: {
+          if (tag !== 82) {
+            break;
+          }
+
+          message.secured = SecuredMessage.decode(reader, reader.uint32());
+          continue;
+        }
+        case 11: {
+          if (tag !== 90) {
+            break;
+          }
+
+          message.contractSubmission = Contract.decode(reader, reader.uint32());
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -509,12 +571,23 @@ export const SyncMessage: MessageFns<SyncMessage, "synch.v1.SyncMessage"> = {
         : isSet(object.sender_id)
         ? globalThis.String(object.sender_id)
         : "",
+      targetId: isSet(object.targetId)
+        ? globalThis.String(object.targetId)
+        : isSet(object.target_id)
+        ? globalThis.String(object.target_id)
+        : "",
       handshake: isSet(object.handshake) ? VaultHandshake.fromJSON(object.handshake) : undefined,
       delta: isSet(object.delta) ? DeltaManifest.fromJSON(object.delta) : undefined,
       ack: isSet(object.ack) ? DeltaAck.fromJSON(object.ack) : undefined,
       conflict: isSet(object.conflict) ? ConflictDetected.fromJSON(object.conflict) : undefined,
       progress: isSet(object.progress) ? SyncProgress.fromJSON(object.progress) : undefined,
       presence: isSet(object.presence) ? PresenceUpdate.fromJSON(object.presence) : undefined,
+      secured: isSet(object.secured) ? SecuredMessage.fromJSON(object.secured) : undefined,
+      contractSubmission: isSet(object.contractSubmission)
+        ? Contract.fromJSON(object.contractSubmission)
+        : isSet(object.contract_submission)
+        ? Contract.fromJSON(object.contract_submission)
+        : undefined,
     };
   },
 
@@ -522,6 +595,9 @@ export const SyncMessage: MessageFns<SyncMessage, "synch.v1.SyncMessage"> = {
     const obj: any = {};
     if (message.senderId !== "") {
       obj.senderId = message.senderId;
+    }
+    if (message.targetId !== "") {
+      obj.targetId = message.targetId;
     }
     if (message.handshake !== undefined) {
       obj.handshake = VaultHandshake.toJSON(message.handshake);
@@ -541,6 +617,12 @@ export const SyncMessage: MessageFns<SyncMessage, "synch.v1.SyncMessage"> = {
     if (message.presence !== undefined) {
       obj.presence = PresenceUpdate.toJSON(message.presence);
     }
+    if (message.secured !== undefined) {
+      obj.secured = SecuredMessage.toJSON(message.secured);
+    }
+    if (message.contractSubmission !== undefined) {
+      obj.contractSubmission = Contract.toJSON(message.contractSubmission);
+    }
     return obj;
   },
 
@@ -550,6 +632,7 @@ export const SyncMessage: MessageFns<SyncMessage, "synch.v1.SyncMessage"> = {
   fromPartial<I extends Exact<DeepPartial<SyncMessage>, I>>(object: I): SyncMessage {
     const message = createBaseSyncMessage();
     message.senderId = object.senderId ?? "";
+    message.targetId = object.targetId ?? "";
     message.handshake = (object.handshake !== undefined && object.handshake !== null)
       ? VaultHandshake.fromPartial(object.handshake)
       : undefined;
@@ -566,6 +649,12 @@ export const SyncMessage: MessageFns<SyncMessage, "synch.v1.SyncMessage"> = {
     message.presence = (object.presence !== undefined && object.presence !== null)
       ? PresenceUpdate.fromPartial(object.presence)
       : undefined;
+    message.secured = (object.secured !== undefined && object.secured !== null)
+      ? SecuredMessage.fromPartial(object.secured)
+      : undefined;
+    message.contractSubmission = (object.contractSubmission !== undefined && object.contractSubmission !== null)
+      ? Contract.fromPartial(object.contractSubmission)
+      : undefined;
     return message;
   },
 };
@@ -580,6 +669,7 @@ function createBaseVaultHandshake(): VaultHandshake {
     versionVector: {},
     capabilities: [],
     nodeId: "",
+    nodeType: 0,
   };
 }
 
@@ -605,6 +695,9 @@ export const VaultHandshake: MessageFns<VaultHandshake, "synch.v1.VaultHandshake
     }
     if (message.nodeId !== "") {
       writer.uint32(42).string(message.nodeId);
+    }
+    if (message.nodeType !== 0) {
+      writer.uint32(48).int32(message.nodeType);
     }
     return writer;
   },
@@ -659,6 +752,14 @@ export const VaultHandshake: MessageFns<VaultHandshake, "synch.v1.VaultHandshake
           message.nodeId = reader.string();
           continue;
         }
+        case 6: {
+          if (tag !== 48) {
+            break;
+          }
+
+          message.nodeType = reader.int32() as any;
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -706,6 +807,11 @@ export const VaultHandshake: MessageFns<VaultHandshake, "synch.v1.VaultHandshake
         : isSet(object.node_id)
         ? globalThis.String(object.node_id)
         : "",
+      nodeType: isSet(object.nodeType)
+        ? nodeTypeFromJSON(object.nodeType)
+        : isSet(object.node_type)
+        ? nodeTypeFromJSON(object.node_type)
+        : 0,
     };
   },
 
@@ -732,6 +838,9 @@ export const VaultHandshake: MessageFns<VaultHandshake, "synch.v1.VaultHandshake
     if (message.nodeId !== "") {
       obj.nodeId = message.nodeId;
     }
+    if (message.nodeType !== 0) {
+      obj.nodeType = nodeTypeToJSON(message.nodeType);
+    }
     return obj;
   },
 
@@ -753,6 +862,7 @@ export const VaultHandshake: MessageFns<VaultHandshake, "synch.v1.VaultHandshake
     );
     message.capabilities = object.capabilities?.map((e) => e) || [];
     message.nodeId = object.nodeId ?? "";
+    message.nodeType = object.nodeType ?? 0;
     return message;
   },
 };
@@ -1874,7 +1984,15 @@ export const ConflictDetected: MessageFns<ConflictDetected, "synch.v1.ConflictDe
 messageTypeRegistry.set(ConflictDetected.$type, ConflictDetected);
 
 function createBasePresenceUpdate(): PresenceUpdate {
-  return { $type: "synch.v1.PresenceUpdate", nodeId: "", status: 0, lastSeen: 0, activeVaultId: "" };
+  return {
+    $type: "synch.v1.PresenceUpdate",
+    nodeId: "",
+    status: 0,
+    lastSeen: 0,
+    activeVaultId: "",
+    perceptionLevel: 0,
+    preferredRelays: [],
+  };
 }
 
 export const PresenceUpdate: MessageFns<PresenceUpdate, "synch.v1.PresenceUpdate"> = {
@@ -1892,6 +2010,12 @@ export const PresenceUpdate: MessageFns<PresenceUpdate, "synch.v1.PresenceUpdate
     }
     if (message.activeVaultId !== "") {
       writer.uint32(34).string(message.activeVaultId);
+    }
+    if (message.perceptionLevel !== 0) {
+      writer.uint32(40).int32(message.perceptionLevel);
+    }
+    for (const v of message.preferredRelays) {
+      writer.uint32(50).string(v!);
     }
     return writer;
   },
@@ -1935,6 +2059,22 @@ export const PresenceUpdate: MessageFns<PresenceUpdate, "synch.v1.PresenceUpdate
           message.activeVaultId = reader.string();
           continue;
         }
+        case 5: {
+          if (tag !== 40) {
+            break;
+          }
+
+          message.perceptionLevel = reader.int32() as any;
+          continue;
+        }
+        case 6: {
+          if (tag !== 50) {
+            break;
+          }
+
+          message.preferredRelays.push(reader.string());
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -1963,6 +2103,16 @@ export const PresenceUpdate: MessageFns<PresenceUpdate, "synch.v1.PresenceUpdate
         : isSet(object.active_vault_id)
         ? globalThis.String(object.active_vault_id)
         : "",
+      perceptionLevel: isSet(object.perceptionLevel)
+        ? perceptionLevelFromJSON(object.perceptionLevel)
+        : isSet(object.perception_level)
+        ? perceptionLevelFromJSON(object.perception_level)
+        : 0,
+      preferredRelays: globalThis.Array.isArray(object?.preferredRelays)
+        ? object.preferredRelays.map((e: any) => globalThis.String(e))
+        : globalThis.Array.isArray(object?.preferred_relays)
+        ? object.preferred_relays.map((e: any) => globalThis.String(e))
+        : [],
     };
   },
 
@@ -1980,6 +2130,12 @@ export const PresenceUpdate: MessageFns<PresenceUpdate, "synch.v1.PresenceUpdate
     if (message.activeVaultId !== "") {
       obj.activeVaultId = message.activeVaultId;
     }
+    if (message.perceptionLevel !== 0) {
+      obj.perceptionLevel = perceptionLevelToJSON(message.perceptionLevel);
+    }
+    if (message.preferredRelays?.length) {
+      obj.preferredRelays = message.preferredRelays;
+    }
     return obj;
   },
 
@@ -1992,6 +2148,8 @@ export const PresenceUpdate: MessageFns<PresenceUpdate, "synch.v1.PresenceUpdate
     message.status = object.status ?? 0;
     message.lastSeen = object.lastSeen ?? 0;
     message.activeVaultId = object.activeVaultId ?? "";
+    message.perceptionLevel = object.perceptionLevel ?? 0;
+    message.preferredRelays = object.preferredRelays?.map((e) => e) || [];
     return message;
   },
 };

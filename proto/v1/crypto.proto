@@ -85,6 +85,18 @@ message EncryptedPayload {
 
   // 附加认证数据 (AAD) 的哈希 (用于验证上下文)
   bytes aad_hash = 5;
+
+  // 关联的契约 ID (可选，用于 E2EE 消息)
+  string contract_id = 6;
+
+  // 棘轮序列号 (用于前向保密)
+  uint32 ratchet_seq = 7;
+
+  // 发送方的当前棘轮公钥 (用于 DH 棘轮)
+  bytes ratchet_key = 8;
+
+  // 上一条发送链的消息数量 (用于接收端同步)
+  uint32 prev_chain_length = 9;
 }
 
 // ============================================================

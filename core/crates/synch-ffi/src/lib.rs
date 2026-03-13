@@ -235,19 +235,232 @@ impl SynchVault {
         // Construct a simple delta batch
         let delta = DeltaBatch {
             vault_id: vault.vault_id.clone(),
-            sender_id: node_id.clone(),
             base_version: vault.version,
-            new_version: seq,
-            entries: vec![DeltaEntry {
+            target_version: seq,
+            changes: vec![DeltaEntry::new_create(
                 path,
-                operation: EntryOperation::Write,
-                content: Some(content.into_bytes()),
-                timestamp: 123456789,
-            }],
-            version_vector: vault.version_vector.clone(),
+                content.into_bytes(),
+                node_id,
+                seq,
+                now_millis(),
+            )],
         };
 
-        let _ = vault.apply_delta(delta);
+        let _ = vault.apply_batch(delta);
+    }
+}
+
+fn now_millis() -> u64 {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
+
+// ─── Handshake UniFFI Wrapper ────────────────────────────────────────────────
+
+#[derive(uniffi::Record)]
+pub struct HandshakeStateRecord {
+    pub contract_id: String,
+    pub status: String,
+    pub requester_id: String,
+    pub target_id: String,
+    pub capabilities: Vec<String>,
+}
+
+#[derive(uniffi::Object)]
+pub struct HandshakeController {
+    pub inner: std::sync::Arc<std::sync::Mutex<synch_sync::contract_manager::ContractManager>>,
+}
+
+#[uniffi::export]
+impl HandshakeController {
+    #[uniffi::constructor]
+    pub fn new() -> Self {
+        Self {
+            inner: std::sync::Arc::new(std::sync::Mutex::new(synch_sync::contract_manager::ContractManager::new())),
+        }
+    }
+
+    pub fn initiate_handshake(
+        &self,
+        secret_key_hex: String,
+        target_pk_hex: String,
+        capabilities: Vec<String>,
+        duration_days: u64,
+    ) -> Result<String, SynchError> {
+        let sk_bytes = hex::decode(&secret_key_hex).map_err(|e: hex::FromHexError| SynchError::CryptoError(e.to_string()))?;
+        let target_pk = hex::decode(&target_pk_hex).map_err(|e: hex::FromHexError| SynchError::CryptoError(e.to_string()))?;
+        let my_keys = Ed25519KeyPair::from_bytes(&sk_bytes).map_err(|e: synch_crypto::error::CryptoError| SynchError::CryptoError(e.to_string()))?;
+        
+        let mut manager = self.inner.lock().unwrap();
+        let contract = manager.initiate_handshake(&my_keys, &target_pk, capabilities, duration_days)
+            .map_err(|e: synch_sync::error::SyncError| SynchError::CryptoError(e.to_string()))?;
+            
+        contract.to_json().map_err(|e: synch_crypto::error::CryptoError| SynchError::CryptoError(e.to_string()))
+    }
+
+    pub fn respond_to_handshake(
+        &self,
+        secret_key_hex: String,
+        req_json: String,
+        accept: bool,
+        my_exchange_sk_hex: Option<String>,
+        remote_exchange_pk_hex: Option<String>,
+    ) -> Result<String, SynchError> {
+        let sk_bytes = hex::decode(&secret_key_hex).map_err(|e: hex::FromHexError| SynchError::CryptoError(e.to_string()))?;
+        let my_keys = Ed25519KeyPair::from_bytes(&sk_bytes).map_err(|e: synch_crypto::error::CryptoError| SynchError::CryptoError(e.to_string()))?;
+        
+        let my_exchange = if let Some(sk) = my_exchange_sk_hex {
+            let bytes = hex::decode(&sk).map_err(|e| SynchError::CryptoError(e.to_string()))?;
+            Some(X25519KeyPair::from_bytes(&bytes).map_err(|e: synch_crypto::error::CryptoError| SynchError::CryptoError(e.to_string()))?)
+        } else {
+            None
+        };
+
+        let remote_exchange = if let Some(pk) = remote_exchange_pk_hex {
+            let bytes = hex::decode(&pk).map_err(|e| SynchError::CryptoError(e.to_string()))?;
+            if bytes.len() != 32 {
+                return Err(SynchError::CryptoError("Invalid remote exchange key length".into()));
+            }
+            let mut arr = [0u8; 32];
+            arr.copy_from_slice(&bytes);
+            Some(arr)
+        } else {
+            None
+        };
+
+        let mut manager = self.inner.lock().unwrap();
+        let contract = manager.respond_to_handshake(&my_keys, &req_json, Some(accept), my_exchange, remote_exchange)
+            .map_err(|e: synch_sync::error::SyncError| SynchError::CryptoError(e.to_string()))?;
+            
+        contract.to_json().map_err(|e: synch_crypto::error::CryptoError| SynchError::CryptoError(e.to_string()))
+    }
+
+    pub fn finalize_handshake(
+        &self,
+        ack_json: String,
+        my_exchange_sk_hex: Option<String>,
+        remote_exchange_pk_hex: Option<String>,
+    ) -> Result<String, SynchError> {
+        let my_exchange = if let Some(sk) = my_exchange_sk_hex {
+            let bytes = hex::decode(&sk).map_err(|e| SynchError::CryptoError(e.to_string()))?;
+            Some(X25519KeyPair::from_bytes(&bytes).map_err(|e| SynchError::CryptoError(e.to_string()))?)
+        } else {
+            None
+        };
+
+        let remote_exchange = if let Some(pk) = remote_exchange_pk_hex {
+            let bytes = hex::decode(&pk).map_err(|e| SynchError::CryptoError(e.to_string()))?;
+            if bytes.len() != 32 {
+                return Err(SynchError::CryptoError("Invalid remote exchange key length".into()));
+            }
+            let mut arr = [0u8; 32];
+            arr.copy_from_slice(&bytes);
+            Some(arr)
+        } else {
+            None
+        };
+
+        let mut manager = self.inner.lock().unwrap();
+        let contract = manager.finalize_handshake(&ack_json, my_exchange, remote_exchange)
+            .map_err(|e: synch_sync::error::SyncError| SynchError::CryptoError(e.to_string()))?;
+            
+        contract.to_json().map_err(|e: synch_crypto::error::CryptoError| SynchError::CryptoError(e.to_string()))
+    }
+
+    pub fn get_pending_handshakes(&self) -> Vec<HandshakeStateRecord> {
+        let manager = self.inner.lock().unwrap();
+        manager.handshake_manager.list_pending().into_iter().map(|s| {
+            HandshakeStateRecord {
+                contract_id: s.contract.contract_id.clone(),
+                status: format!("{:?}", s.status),
+                requester_id: hex::encode(&s.contract.requester_id),
+                target_id: hex::encode(&s.contract.target_id),
+                capabilities: s.contract.capabilities.clone(),
+            }
+        }).collect()
+    }
+
+    pub fn set_policy(&self, trusted_nodes_hex: Vec<String>, auto_accept_caps: Vec<String>) -> Result<(), SynchError> {
+        let mut manager = self.inner.lock().unwrap();
+        let mut trusted = Vec::new();
+        for hex_pk in trusted_nodes_hex {
+            trusted.push(hex::decode(hex_pk).map_err(|e| SynchError::CryptoError(e.to_string()))?);
+        }
+        manager.set_policy(synch_sync::contract_manager::HandshakePolicy {
+            trusted_nodes: trusted,
+            auto_accept_capabilities: auto_accept_caps,
+        });
+        Ok(())
+    }
+
+    pub fn export_state(&self) -> Result<String, SynchError> {
+        let manager = self.inner.lock().unwrap();
+        serde_json::to_string(&*manager).map_err(|e| SynchError::CryptoError(e.to_string()))
+    }
+
+    pub fn import_state(&self, json: String) -> Result<(), SynchError> {
+        let mut manager = self.inner.lock().unwrap();
+        *manager = serde_json::from_str(&json).map_err(|e| SynchError::CryptoError(e.to_string()))?;
+        Ok(())
+    }
+
+    pub fn save_to_file(&self, path: String) -> Result<(), SynchError> {
+        let manager = self.inner.lock().unwrap();
+        manager.save_to_file(path).map_err(|e| SynchError::CryptoError(e.to_string()))
+    }
+
+    pub fn load_from_file(&self, path: String) -> Result<(), SynchError> {
+        let mut manager = self.inner.lock().unwrap();
+        *manager = synch_sync::contract_manager::ContractManager::load_from_file(path)
+            .map_err(|e| SynchError::CryptoError(e.to_string()))?;
+        Ok(())
+    }
+
+    pub fn seal_vault_batch(
+        &self,
+        vault: &SynchVault,
+        contract_id: String,
+        base_version: u64,
+        target_version: u64,
+    ) -> Result<String, SynchError> {
+        let mut manager = self.inner.lock().unwrap();
+        let ratchet = manager.active_ratchets.get_mut(&contract_id)
+            .ok_or_else(|| SynchError::CryptoError(format!("No active ratchet for contract {}", contract_id)))?;
+        
+        let vault_inner = vault.inner.lock().unwrap();
+        let changes = vault_inner.deltas_since(base_version).into_iter().cloned().collect();
+        let batch = DeltaBatch::new(vault_inner.vault_id.clone(), base_version, target_version).with_changes(changes);
+        
+        let secured = synch_sync::secure::seal_batch(ratchet, contract_id, &batch)
+            .map_err(|e| SynchError::CryptoError(e.to_string()))?;
+            
+        serde_json::to_string(&secured).map_err(|e| SynchError::CryptoError(e.to_string()))
+    }
+
+    pub fn apply_secured_vault_batch(
+        &self,
+        vault: &SynchVault,
+        secured_json: String,
+    ) -> Result<u64, SynchError> {
+        let secured: synch_sync::secure::SecuredBatch = serde_json::from_str(&secured_json)
+            .map_err(|e| SynchError::CryptoError(e.to_string()))?;
+            
+        let mut manager = self.inner.lock().unwrap();
+        let ratchet = manager.active_ratchets.get_mut(&secured.contract_id)
+            .ok_or_else(|| SynchError::CryptoError(format!("No active ratchet for contract {}", secured.contract_id)))?;
+            
+        let vault_id = vault.inner.lock().unwrap().vault_id.clone();
+        let batch = synch_sync::secure::open_batch(ratchet, &secured, &vault_id)
+            .map_err(|e| SynchError::CryptoError(e.to_string()))?;
+            
+        let mut vault_inner = vault.inner.lock().unwrap();
+        let count = vault_inner.apply_batch(batch)
+            .map_err(|e| SynchError::CryptoError(e.to_string()))?;
+            
+        Ok(count as u64)
     }
 }
 
@@ -255,6 +468,58 @@ impl Drop for SynchVault {
     fn drop(&mut self) {
         // This log will appear in logcat for Android debugging
         println!("[SynchVault] Rust object is being dropped. Resources released.");
+    }
+}
+
+// ─── Relay UniFFI Wrapper ───────────────────────────────────────────────────
+
+#[derive(uniffi::Object)]
+pub struct RelayController {
+    inner: std::sync::Arc<synch_sync::net::RelayManager>,
+    rt: std::sync::Arc<tokio::runtime::Runtime>,
+}
+
+#[uniffi::export]
+impl RelayController {
+    #[uniffi::constructor]
+    pub fn new() -> Result<Self, SynchError> {
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .map_err(|e| SynchError::CryptoError(e.to_string()))?;
+            
+        Ok(Self {
+            inner: std::sync::Arc::new(synch_sync::net::RelayManager::new()),
+            rt: std::sync::Arc::new(rt),
+        })
+    }
+
+    pub fn add_relay(&self, url: String, is_primary: bool) {
+        let role = if is_primary {
+            synch_sync::net::RelayRole::Primary
+        } else {
+            synch_sync::net::RelayRole::Secondary
+        };
+        let inner = self.inner.clone();
+        self.rt.spawn(async move {
+            let _ = inner.add_relay(&url, role).await;
+        });
+    }
+
+    pub fn remove_relay(&self, url: String) {
+        let inner = self.inner.clone();
+        self.rt.spawn(async move {
+            inner.remove_relay(&url).await;
+        });
+    }
+
+    pub fn broadcast(&self, payload_hex: String) -> Result<(), SynchError> {
+        let data = hex::decode(&payload_hex).map_err(|e| SynchError::CryptoError(e.to_string()))?;
+        let inner = self.inner.clone();
+        self.rt.spawn(async move {
+            inner.broadcast(data).await;
+        });
+        Ok(())
     }
 }
 

@@ -1,4 +1,4 @@
-# Synch 项目 Agent 深度调试与性能精进流程
+# 02. Synch 项目 Agent 深度调试与性能精进流程
 
 这是为项目进入「稳健期」准备的 **「可控调试」** 手册。在完成初步开发后，按照以下 1 到 10 步进行系统性的排错、优化和功能加固。
 
@@ -16,7 +16,7 @@ task build:vcp-agent
 
 ---
 
-## 第一步：契约一致性校验 (Protobuf Deep Dive)
+## 01. 第一步：契约一致性校验 (Protobuf Deep Dive)
 
 **目标**：确保各端生成的代码与 `.proto` 定义完全同步，解决字段缺失或类型不匹配。
 
@@ -29,7 +29,7 @@ task build:vcp-agent
 
 ---
 
-## 第二步：核心引擎稳定性调试 (Rust Core Debugging)
+## 02. 第二步：核心引擎稳定性调试 (Rust Core Debugging)
 
 **目标**：解决 Rust 层的内存安全隐患、异步死锁以及 FFI 边界的 Panic。
 
@@ -43,7 +43,7 @@ task build:vcp-agent
 
 ---
 
-## 第三步：网络中继性能优化 (Go Relay Tuning)
+## 03. 第三步：网络中继性能优化 (Go Relay Tuning)
 
 **目标**：调试 WebSocket 掉线重连、高并发下的内存抖动。
 
@@ -57,7 +57,7 @@ task build:vcp-agent
 
 ---
 
-## 第四步：跨端联调：TS 插件 ↔ Go Server
+## 04. 第四步：跨端联调：TS 插件 ↔ Go Server
 
 **目标**：打通第一个完整的端到端链路，解决序列化格式不兼容的问题。
 
@@ -71,7 +71,7 @@ task build:vcp-agent
 
 ---
 
-## 第五步：移动端 UniFFI 内存与生命周期调试
+## 05. 第五步：移动端 UniFFI 内存与生命周期调试
 
 **目标**：解决 Android 端的 JNI 报错、库加载失败以及后台常驻问题。
 
@@ -84,7 +84,7 @@ task build:vcp-agent
 
 ---
 
-## 第六步：同步算法精进 (CRDT/Delta Sync Polishing)
+## 06. 第六步：同步算法精进 (CRDT/Delta Sync Polishing)
 
 **目标**：处理复杂的冲突合并（Conflict Resolution）和增量更新效率。
 
@@ -97,7 +97,7 @@ task build:vcp-agent
 
 ---
 
-## 第七步：E2E 自动化测试套件增强
+## 07. 第七步：E2E 自动化测试套件增强
 
 **目标**：建立回归测试体系，确保新功能不破坏旧链路。
 
@@ -111,7 +111,7 @@ task build:vcp-agent
 
 ---
 
-## 第八步：安全加固与加密链路审计
+## 08. 第八步：安全加固与加密链路审计
 
 **目标**：验证端到端加密（E2EE）的安全性，防止中间人攻击。
 
@@ -124,7 +124,7 @@ task build:vcp-agent
 
 ---
 
-## 第九步：部署方案加固与生产环境模拟
+## 09. 第九步：部署方案加固与生产环境模拟
 
 **目标**：通过 Docker Compose 模拟生产环境的负载均衡、SSL/TLS 卸载。
 
@@ -137,7 +137,7 @@ task build:vcp-agent
 
 ---
 
-## 第十步：文档同步与开发者体验 (DX)
+## 10. 第十步：文档同步与开发者体验 (DX)
 
 **目标**：让新加入的 Agent 或人类开发者能快速上手调试项目。
 

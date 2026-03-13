@@ -7,6 +7,7 @@ package synch.v1;
 option go_package = "synch/v1;synchv1";
 
 import "v1/crypto.proto";
+import "v1/synch.proto";
 
 // ============================================================
 //  同步状态机 (Sync State Machine)
@@ -32,6 +33,9 @@ enum SyncState {
  message SyncMessage {
    // 逻辑发送方 ID (当通过 Plugin 中继时使用)
    string sender_id = 7;
+   
+   // 逻辑接收方 ID (用于定向路由)
+   string target_id = 8;
  
    oneof payload {
      VaultHandshake    handshake = 1;
@@ -40,6 +44,12 @@ enum SyncState {
      ConflictDetected  conflict  = 4;
      SyncProgress      progress  = 5;
      PresenceUpdate    presence  = 6;
+     
+     // 加密通讯载荷 (E2EE)
+     SecuredMessage    secured   = 10;
+     
+     // 契约握手/提交
+     Contract          contract_submission = 11;
    }
  }
 
@@ -63,6 +73,9 @@ message VaultHandshake {
 
   // 客户端节点 ID (用于服务端标识来源)
   string node_id = 5;
+
+  // 节点类型 (用于权限校验)
+  NodeType node_type = 6;
 }
 
 // ============================================================
@@ -208,6 +221,10 @@ message PresenceUpdate {
   PresenceStatus status = 2;
   uint64 last_seen = 3; // Unix epoch millis
   string active_vault_id = 4; // 当前活跃的 Vault (可选)
+  PerceptionLevel perception_level = 5; // 感知层级
+  
+  // 节点当前的首选中继节点 URLs
+  repeated string preferred_relays = 6;
 }
 
 // PresenceStatus 在线状态

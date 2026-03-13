@@ -92,7 +92,7 @@ pub fn verify_ed25519(
 // ─── X25519 ────────────────────────────────────────────────────────────────
 
 /// Shared secret from X25519 ECDH
-#[derive(ZeroizeOnDrop)]
+#[derive(ZeroizeOnDrop, Clone, Serialize, Deserialize)]
 pub struct SharedSecret {
     bytes: [u8; 32],
 }
@@ -104,9 +104,38 @@ impl SharedSecret {
 }
 
 /// X25519 key pair for ECDH key exchange
-#[derive(ZeroizeOnDrop)]
+#[derive(ZeroizeOnDrop, Clone)]
 pub struct X25519KeyPair {
     secret: x25519_dalek::StaticSecret,
+}
+
+impl std::fmt::Debug for X25519KeyPair {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("X25519KeyPair")
+            .field("public_key", &hex::encode(self.public_key_bytes()))
+            .finish()
+    }
+}
+
+impl Serialize for X25519KeyPair {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.secret.to_bytes().serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for X25519KeyPair {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let bytes = <[u8; 32]>::deserialize(deserializer)?;
+        Ok(Self {
+            secret: x25519_dalek::StaticSecret::from(bytes),
+        })
+    }
 }
 
 impl X25519KeyPair {

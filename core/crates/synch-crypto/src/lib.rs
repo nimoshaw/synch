@@ -12,9 +12,12 @@ pub mod identity;
 pub mod keys;
 pub mod encrypt;
 pub mod hash;
+pub mod contract;
+pub mod ratchet;
 
 pub use error::CryptoError;
 pub use identity::{NodeIdentity, NodeKey};
 pub use keys::{Ed25519KeyPair, X25519KeyPair, SharedSecret};
-pub use encrypt::{EncryptedPayload, encrypt_aes_gcm, decrypt_aes_gcm};
+pub use encrypt::{EncryptedPayload, encrypt_aes_gcm, decrypt_aes_gcm, encrypt_ratchet, decrypt_ratchet};
+pub use ratchet::{DoubleRatchet, ChainState};
 pub use hash::{blake3_hash, blake3_fingerprint};

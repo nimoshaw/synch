@@ -261,6 +261,8 @@ type SyncMessage struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// 逻辑发送方 ID (当通过 Plugin 中继时使用)
 	SenderId string `protobuf:"bytes,7,opt,name=sender_id,json=senderId,proto3" json:"sender_id,omitempty"`
+	// 逻辑接收方 ID (用于定向路由)
+	TargetId string `protobuf:"bytes,8,opt,name=target_id,json=targetId,proto3" json:"target_id,omitempty"`
 	// Types that are valid to be assigned to Payload:
 	//
 	//	*SyncMessage_Handshake
@@ -269,6 +271,8 @@ type SyncMessage struct {
 	//	*SyncMessage_Conflict
 	//	*SyncMessage_Progress
 	//	*SyncMessage_Presence
+	//	*SyncMessage_Secured
+	//	*SyncMessage_ContractSubmission
 	Payload       isSyncMessage_Payload `protobuf_oneof:"payload"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -307,6 +311,13 @@ func (*SyncMessage) Descriptor() ([]byte, []int) {
 func (x *SyncMessage) GetSenderId() string {
 	if x != nil {
 		return x.SenderId
+	}
+	return ""
+}
+
+func (x *SyncMessage) GetTargetId() string {
+	if x != nil {
+		return x.TargetId
 	}
 	return ""
 }
@@ -372,6 +383,24 @@ func (x *SyncMessage) GetPresence() *PresenceUpdate {
 	return nil
 }
 
+func (x *SyncMessage) GetSecured() *SecuredMessage {
+	if x != nil {
+		if x, ok := x.Payload.(*SyncMessage_Secured); ok {
+			return x.Secured
+		}
+	}
+	return nil
+}
+
+func (x *SyncMessage) GetContractSubmission() *Contract {
+	if x != nil {
+		if x, ok := x.Payload.(*SyncMessage_ContractSubmission); ok {
+			return x.ContractSubmission
+		}
+	}
+	return nil
+}
+
 type isSyncMessage_Payload interface {
 	isSyncMessage_Payload()
 }
@@ -400,6 +429,16 @@ type SyncMessage_Presence struct {
 	Presence *PresenceUpdate `protobuf:"bytes,6,opt,name=presence,proto3,oneof"`
 }
 
+type SyncMessage_Secured struct {
+	// 加密通讯载荷 (E2EE)
+	Secured *SecuredMessage `protobuf:"bytes,10,opt,name=secured,proto3,oneof"`
+}
+
+type SyncMessage_ContractSubmission struct {
+	// 契约握手/提交
+	ContractSubmission *Contract `protobuf:"bytes,11,opt,name=contract_submission,json=contractSubmission,proto3,oneof"`
+}
+
 func (*SyncMessage_Handshake) isSyncMessage_Payload() {}
 
 func (*SyncMessage_Delta) isSyncMessage_Payload() {}
@@ -411,6 +450,10 @@ func (*SyncMessage_Conflict) isSyncMessage_Payload() {}
 func (*SyncMessage_Progress) isSyncMessage_Payload() {}
 
 func (*SyncMessage_Presence) isSyncMessage_Payload() {}
+
+func (*SyncMessage_Secured) isSyncMessage_Payload() {}
+
+func (*SyncMessage_ContractSubmission) isSyncMessage_Payload() {}
 
 // VaultHandshake 用于同步开始前的版本协商
 type VaultHandshake struct {
@@ -424,7 +467,9 @@ type VaultHandshake struct {
 	// 客户端支持的同步能力: "delta", "rsync", "full-snapshot" ...
 	Capabilities []string `protobuf:"bytes,4,rep,name=capabilities,proto3" json:"capabilities,omitempty"`
 	// 客户端节点 ID (用于服务端标识来源)
-	NodeId        string `protobuf:"bytes,5,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
+	NodeId string `protobuf:"bytes,5,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
+	// 节点类型 (用于权限校验)
+	NodeType      NodeType `protobuf:"varint,6,opt,name=node_type,json=nodeType,proto3,enum=synch.v1.NodeType" json:"node_type,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -492,6 +537,13 @@ func (x *VaultHandshake) GetNodeId() string {
 		return x.NodeId
 	}
 	return ""
+}
+
+func (x *VaultHandshake) GetNodeType() NodeType {
+	if x != nil {
+		return x.NodeType
+	}
+	return NodeType_NODE_TYPE_UNSPECIFIED
 }
 
 // DeltaManifest 描述一次增量同步批次
@@ -1029,13 +1081,16 @@ func (x *ConflictDetected) GetSuggestedResolution() ConflictResolution {
 
 // PresenceUpdate 广播节点在线状态
 type PresenceUpdate struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	NodeId        string                 `protobuf:"bytes,1,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
-	Status        PresenceStatus         `protobuf:"varint,2,opt,name=status,proto3,enum=synch.v1.PresenceStatus" json:"status,omitempty"`
-	LastSeen      uint64                 `protobuf:"varint,3,opt,name=last_seen,json=lastSeen,proto3" json:"last_seen,omitempty"`                 // Unix epoch millis
-	ActiveVaultId string                 `protobuf:"bytes,4,opt,name=active_vault_id,json=activeVaultId,proto3" json:"active_vault_id,omitempty"` // 当前活跃的 Vault (可选)
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	NodeId          string                 `protobuf:"bytes,1,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
+	Status          PresenceStatus         `protobuf:"varint,2,opt,name=status,proto3,enum=synch.v1.PresenceStatus" json:"status,omitempty"`
+	LastSeen        uint64                 `protobuf:"varint,3,opt,name=last_seen,json=lastSeen,proto3" json:"last_seen,omitempty"`                                                    // Unix epoch millis
+	ActiveVaultId   string                 `protobuf:"bytes,4,opt,name=active_vault_id,json=activeVaultId,proto3" json:"active_vault_id,omitempty"`                                    // 当前活跃的 Vault (可选)
+	PerceptionLevel PerceptionLevel        `protobuf:"varint,5,opt,name=perception_level,json=perceptionLevel,proto3,enum=synch.v1.PerceptionLevel" json:"perception_level,omitempty"` // 感知层级
+	// 节点当前的首选中继节点 URLs
+	PreferredRelays []string `protobuf:"bytes,6,rep,name=preferred_relays,json=preferredRelays,proto3" json:"preferred_relays,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *PresenceUpdate) Reset() {
@@ -1096,26 +1151,45 @@ func (x *PresenceUpdate) GetActiveVaultId() string {
 	return ""
 }
 
+func (x *PresenceUpdate) GetPerceptionLevel() PerceptionLevel {
+	if x != nil {
+		return x.PerceptionLevel
+	}
+	return PerceptionLevel_PERCEPTION_LEVEL_UNSPECIFIED
+}
+
+func (x *PresenceUpdate) GetPreferredRelays() []string {
+	if x != nil {
+		return x.PreferredRelays
+	}
+	return nil
+}
+
 var File_v1_sync_proto protoreflect.FileDescriptor
 
 const file_v1_sync_proto_rawDesc = "" +
 	"\n" +
-	"\rv1/sync.proto\x12\bsynch.v1\x1a\x0fv1/crypto.proto\"\xf0\x02\n" +
+	"\rv1/sync.proto\x12\bsynch.v1\x1a\x0fv1/crypto.proto\x1a\x0ev1/synch.proto\"\x8a\x04\n" +
 	"\vSyncMessage\x12\x1b\n" +
-	"\tsender_id\x18\a \x01(\tR\bsenderId\x128\n" +
+	"\tsender_id\x18\a \x01(\tR\bsenderId\x12\x1b\n" +
+	"\ttarget_id\x18\b \x01(\tR\btargetId\x128\n" +
 	"\thandshake\x18\x01 \x01(\v2\x18.synch.v1.VaultHandshakeH\x00R\thandshake\x12/\n" +
 	"\x05delta\x18\x02 \x01(\v2\x17.synch.v1.DeltaManifestH\x00R\x05delta\x12&\n" +
 	"\x03ack\x18\x03 \x01(\v2\x12.synch.v1.DeltaAckH\x00R\x03ack\x128\n" +
 	"\bconflict\x18\x04 \x01(\v2\x1a.synch.v1.ConflictDetectedH\x00R\bconflict\x124\n" +
 	"\bprogress\x18\x05 \x01(\v2\x16.synch.v1.SyncProgressH\x00R\bprogress\x126\n" +
-	"\bpresence\x18\x06 \x01(\v2\x18.synch.v1.PresenceUpdateH\x00R\bpresenceB\t\n" +
-	"\apayload\"\xa3\x02\n" +
+	"\bpresence\x18\x06 \x01(\v2\x18.synch.v1.PresenceUpdateH\x00R\bpresence\x124\n" +
+	"\asecured\x18\n" +
+	" \x01(\v2\x18.synch.v1.SecuredMessageH\x00R\asecured\x12E\n" +
+	"\x13contract_submission\x18\v \x01(\v2\x12.synch.v1.ContractH\x00R\x12contractSubmissionB\t\n" +
+	"\apayload\"\xd4\x02\n" +
 	"\x0eVaultHandshake\x12\x19\n" +
 	"\bvault_id\x18\x01 \x01(\tR\avaultId\x12#\n" +
 	"\rlocal_version\x18\x02 \x01(\x04R\flocalVersion\x12R\n" +
 	"\x0eversion_vector\x18\x03 \x03(\v2+.synch.v1.VaultHandshake.VersionVectorEntryR\rversionVector\x12\"\n" +
 	"\fcapabilities\x18\x04 \x03(\tR\fcapabilities\x12\x17\n" +
-	"\anode_id\x18\x05 \x01(\tR\x06nodeId\x1a@\n" +
+	"\anode_id\x18\x05 \x01(\tR\x06nodeId\x12/\n" +
+	"\tnode_type\x18\x06 \x01(\x0e2\x12.synch.v1.NodeTypeR\bnodeType\x1a@\n" +
 	"\x12VersionVectorEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\x04R\x05value:\x028\x01\"\xbc\x02\n" +
@@ -1166,12 +1240,14 @@ const file_v1_sync_proto_rawDesc = "" +
 	"\x04path\x18\x02 \x01(\tR\x04path\x12:\n" +
 	"\rlocal_version\x18\x03 \x01(\v2\x15.synch.v1.EntryChangeR\flocalVersion\x12<\n" +
 	"\x0eremote_version\x18\x04 \x01(\v2\x15.synch.v1.EntryChangeR\rremoteVersion\x12O\n" +
-	"\x14suggested_resolution\x18\x05 \x01(\x0e2\x1c.synch.v1.ConflictResolutionR\x13suggestedResolution\"\xa0\x01\n" +
+	"\x14suggested_resolution\x18\x05 \x01(\x0e2\x1c.synch.v1.ConflictResolutionR\x13suggestedResolution\"\x91\x02\n" +
 	"\x0ePresenceUpdate\x12\x17\n" +
 	"\anode_id\x18\x01 \x01(\tR\x06nodeId\x120\n" +
 	"\x06status\x18\x02 \x01(\x0e2\x18.synch.v1.PresenceStatusR\x06status\x12\x1b\n" +
 	"\tlast_seen\x18\x03 \x01(\x04R\blastSeen\x12&\n" +
-	"\x0factive_vault_id\x18\x04 \x01(\tR\ractiveVaultId*\xbb\x01\n" +
+	"\x0factive_vault_id\x18\x04 \x01(\tR\ractiveVaultId\x12D\n" +
+	"\x10perception_level\x18\x05 \x01(\x0e2\x19.synch.v1.PerceptionLevelR\x0fperceptionLevel\x12)\n" +
+	"\x10preferred_relays\x18\x06 \x03(\tR\x0fpreferredRelays*\xbb\x01\n" +
 	"\tSyncState\x12\x1a\n" +
 	"\x16SYNC_STATE_UNSPECIFIED\x10\x00\x12\x13\n" +
 	"\x0fSYNC_STATE_IDLE\x10\x01\x12\x19\n" +
@@ -1228,7 +1304,11 @@ var file_v1_sync_proto_goTypes = []any{
 	(*ConflictDetected)(nil), // 11: synch.v1.ConflictDetected
 	(*PresenceUpdate)(nil),   // 12: synch.v1.PresenceUpdate
 	nil,                      // 13: synch.v1.VaultHandshake.VersionVectorEntry
-	(*Signature)(nil),        // 14: synch.v1.Signature
+	(*SecuredMessage)(nil),   // 14: synch.v1.SecuredMessage
+	(*Contract)(nil),         // 15: synch.v1.Contract
+	(NodeType)(0),            // 16: synch.v1.NodeType
+	(*Signature)(nil),        // 17: synch.v1.Signature
+	(PerceptionLevel)(0),     // 18: synch.v1.PerceptionLevel
 }
 var file_v1_sync_proto_depIdxs = []int32{
 	5,  // 0: synch.v1.SyncMessage.handshake:type_name -> synch.v1.VaultHandshake
@@ -1237,21 +1317,25 @@ var file_v1_sync_proto_depIdxs = []int32{
 	11, // 3: synch.v1.SyncMessage.conflict:type_name -> synch.v1.ConflictDetected
 	10, // 4: synch.v1.SyncMessage.progress:type_name -> synch.v1.SyncProgress
 	12, // 5: synch.v1.SyncMessage.presence:type_name -> synch.v1.PresenceUpdate
-	13, // 6: synch.v1.VaultHandshake.version_vector:type_name -> synch.v1.VaultHandshake.VersionVectorEntry
-	7,  // 7: synch.v1.DeltaManifest.changes:type_name -> synch.v1.EntryChange
-	8,  // 8: synch.v1.DeltaManifest.blocks:type_name -> synch.v1.BlockReference
-	14, // 9: synch.v1.DeltaManifest.manifest_signature:type_name -> synch.v1.Signature
-	1,  // 10: synch.v1.EntryChange.operation:type_name -> synch.v1.EntryOperation
-	0,  // 11: synch.v1.SyncProgress.current_state:type_name -> synch.v1.SyncState
-	7,  // 12: synch.v1.ConflictDetected.local_version:type_name -> synch.v1.EntryChange
-	7,  // 13: synch.v1.ConflictDetected.remote_version:type_name -> synch.v1.EntryChange
-	2,  // 14: synch.v1.ConflictDetected.suggested_resolution:type_name -> synch.v1.ConflictResolution
-	3,  // 15: synch.v1.PresenceUpdate.status:type_name -> synch.v1.PresenceStatus
-	16, // [16:16] is the sub-list for method output_type
-	16, // [16:16] is the sub-list for method input_type
-	16, // [16:16] is the sub-list for extension type_name
-	16, // [16:16] is the sub-list for extension extendee
-	0,  // [0:16] is the sub-list for field type_name
+	14, // 6: synch.v1.SyncMessage.secured:type_name -> synch.v1.SecuredMessage
+	15, // 7: synch.v1.SyncMessage.contract_submission:type_name -> synch.v1.Contract
+	13, // 8: synch.v1.VaultHandshake.version_vector:type_name -> synch.v1.VaultHandshake.VersionVectorEntry
+	16, // 9: synch.v1.VaultHandshake.node_type:type_name -> synch.v1.NodeType
+	7,  // 10: synch.v1.DeltaManifest.changes:type_name -> synch.v1.EntryChange
+	8,  // 11: synch.v1.DeltaManifest.blocks:type_name -> synch.v1.BlockReference
+	17, // 12: synch.v1.DeltaManifest.manifest_signature:type_name -> synch.v1.Signature
+	1,  // 13: synch.v1.EntryChange.operation:type_name -> synch.v1.EntryOperation
+	0,  // 14: synch.v1.SyncProgress.current_state:type_name -> synch.v1.SyncState
+	7,  // 15: synch.v1.ConflictDetected.local_version:type_name -> synch.v1.EntryChange
+	7,  // 16: synch.v1.ConflictDetected.remote_version:type_name -> synch.v1.EntryChange
+	2,  // 17: synch.v1.ConflictDetected.suggested_resolution:type_name -> synch.v1.ConflictResolution
+	3,  // 18: synch.v1.PresenceUpdate.status:type_name -> synch.v1.PresenceStatus
+	18, // 19: synch.v1.PresenceUpdate.perception_level:type_name -> synch.v1.PerceptionLevel
+	20, // [20:20] is the sub-list for method output_type
+	20, // [20:20] is the sub-list for method input_type
+	20, // [20:20] is the sub-list for extension type_name
+	20, // [20:20] is the sub-list for extension extendee
+	0,  // [0:20] is the sub-list for field type_name
 }
 
 func init() { file_v1_sync_proto_init() }
@@ -1260,6 +1344,7 @@ func file_v1_sync_proto_init() {
 		return
 	}
 	file_v1_crypto_proto_init()
+	file_v1_synch_proto_init()
 	file_v1_sync_proto_msgTypes[0].OneofWrappers = []any{
 		(*SyncMessage_Handshake)(nil),
 		(*SyncMessage_Delta)(nil),
@@ -1267,6 +1352,8 @@ func file_v1_sync_proto_init() {
 		(*SyncMessage_Conflict)(nil),
 		(*SyncMessage_Progress)(nil),
 		(*SyncMessage_Presence)(nil),
+		(*SyncMessage_Secured)(nil),
+		(*SyncMessage_ContractSubmission)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{

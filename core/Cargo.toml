@@ -36,5 +36,11 @@ anyhow = "1"
 # Hex encoding
 hex = "0.4"
 
+# Networking & Async
+tokio = { version = "1", features = ["full"] }
+tokio-tungstenite = { version = "0.21", features = ["rustls-tls-webpki-roots"] }
+futures-util = "0.3"
+url = "2.5"
+
 # UniFFI
 uniffi = { version = "0.28", features = ["build"] }

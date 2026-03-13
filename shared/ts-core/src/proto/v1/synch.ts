@@ -7,6 +7,7 @@
 /* eslint-disable */
 import { BinaryReader, BinaryWriter } from "@bufbuild/protobuf/wire";
 import { messageTypeRegistry } from "../typeRegistry";
+import { EncryptedPayload } from "./crypto";
 
 export const protobufPackage = "synch.v1";
 
@@ -28,6 +29,12 @@ export enum NodeType {
   NODE_TYPE_PLUGIN = 4,
   /** NODE_TYPE_MOBILE - 移动端 App (Android/iOS) */
   NODE_TYPE_MOBILE = 5,
+  /** NODE_TYPE_ADMIN - 网络管理员 (全局) */
+  NODE_TYPE_ADMIN = 6,
+  /** NODE_TYPE_LORD - 节点领主 (单节点最高权限) */
+  NODE_TYPE_LORD = 7,
+  /** NODE_TYPE_SUB_ADMIN - 次级管理员 (管事) */
+  NODE_TYPE_SUB_ADMIN = 8,
   UNRECOGNIZED = -1,
 }
 
@@ -51,6 +58,15 @@ export function nodeTypeFromJSON(object: any): NodeType {
     case 5:
     case "NODE_TYPE_MOBILE":
       return NodeType.NODE_TYPE_MOBILE;
+    case 6:
+    case "NODE_TYPE_ADMIN":
+      return NodeType.NODE_TYPE_ADMIN;
+    case 7:
+    case "NODE_TYPE_LORD":
+      return NodeType.NODE_TYPE_LORD;
+    case 8:
+    case "NODE_TYPE_SUB_ADMIN":
+      return NodeType.NODE_TYPE_SUB_ADMIN;
     case -1:
     case "UNRECOGNIZED":
     default:
@@ -72,7 +88,76 @@ export function nodeTypeToJSON(object: NodeType): string {
       return "NODE_TYPE_PLUGIN";
     case NodeType.NODE_TYPE_MOBILE:
       return "NODE_TYPE_MOBILE";
+    case NodeType.NODE_TYPE_ADMIN:
+      return "NODE_TYPE_ADMIN";
+    case NodeType.NODE_TYPE_LORD:
+      return "NODE_TYPE_LORD";
+    case NodeType.NODE_TYPE_SUB_ADMIN:
+      return "NODE_TYPE_SUB_ADMIN";
     case NodeType.UNRECOGNIZED:
+    default:
+      return "UNRECOGNIZED";
+  }
+}
+
+/** PerceptionLevel 定义节点的感知层级 (动态隐私设置) */
+export enum PerceptionLevel {
+  PERCEPTION_LEVEL_UNSPECIFIED = 0,
+  /** PERCEPTION_LEVEL_L0 - 完全公开: 广播完整公钥+历史契约摘要 */
+  PERCEPTION_LEVEL_L0 = 0,
+  /** PERCEPTION_LEVEL_L1 - 社交轮廓: 广播昵称+能力+信誉摘要 */
+  PERCEPTION_LEVEL_L1 = 1,
+  /** PERCEPTION_LEVEL_L2 - 能力橱窗: 广播能力标签，无身份 (默认) */
+  PERCEPTION_LEVEL_L2 = 2,
+  /** PERCEPTION_LEVEL_L3 - 影子模式: 广播加密指纹，无元数据 */
+  PERCEPTION_LEVEL_L3 = 3,
+  /** PERCEPTION_LEVEL_L4 - 完全隐形: 不广播，仅响应已知契约 */
+  PERCEPTION_LEVEL_L4 = 4,
+  UNRECOGNIZED = -1,
+}
+
+export function perceptionLevelFromJSON(object: any): PerceptionLevel {
+  switch (object) {
+    case 0:
+    case "PERCEPTION_LEVEL_UNSPECIFIED":
+      return PerceptionLevel.PERCEPTION_LEVEL_UNSPECIFIED;
+    case 0:
+    case "PERCEPTION_LEVEL_L0":
+      return PerceptionLevel.PERCEPTION_LEVEL_L0;
+    case 1:
+    case "PERCEPTION_LEVEL_L1":
+      return PerceptionLevel.PERCEPTION_LEVEL_L1;
+    case 2:
+    case "PERCEPTION_LEVEL_L2":
+      return PerceptionLevel.PERCEPTION_LEVEL_L2;
+    case 3:
+    case "PERCEPTION_LEVEL_L3":
+      return PerceptionLevel.PERCEPTION_LEVEL_L3;
+    case 4:
+    case "PERCEPTION_LEVEL_L4":
+      return PerceptionLevel.PERCEPTION_LEVEL_L4;
+    case -1:
+    case "UNRECOGNIZED":
+    default:
+      return PerceptionLevel.UNRECOGNIZED;
+  }
+}
+
+export function perceptionLevelToJSON(object: PerceptionLevel): string {
+  switch (object) {
+    case PerceptionLevel.PERCEPTION_LEVEL_UNSPECIFIED:
+      return "PERCEPTION_LEVEL_UNSPECIFIED";
+    case PerceptionLevel.PERCEPTION_LEVEL_L0:
+      return "PERCEPTION_LEVEL_L0";
+    case PerceptionLevel.PERCEPTION_LEVEL_L1:
+      return "PERCEPTION_LEVEL_L1";
+    case PerceptionLevel.PERCEPTION_LEVEL_L2:
+      return "PERCEPTION_LEVEL_L2";
+    case PerceptionLevel.PERCEPTION_LEVEL_L3:
+      return "PERCEPTION_LEVEL_L3";
+    case PerceptionLevel.PERCEPTION_LEVEL_L4:
+      return "PERCEPTION_LEVEL_L4";
+    case PerceptionLevel.UNRECOGNIZED:
     default:
       return "UNRECOGNIZED";
   }
@@ -274,6 +359,69 @@ export function mobileSyncPolicyToJSON(object: MobileSyncPolicy): string {
   }
 }
 
+/** ContractStatus 契约生命周期状态 */
+export enum ContractStatus {
+  CONTRACT_STATUS_UNSPECIFIED = 0,
+  /** CONTRACT_STATUS_PENDING - 等待握手确认 */
+  CONTRACT_STATUS_PENDING = 1,
+  /** CONTRACT_STATUS_ACTIVE - 活跃，正常通讯 */
+  CONTRACT_STATUS_ACTIVE = 2,
+  /** CONTRACT_STATUS_SUSPENDED - 已挂起，暂时屏蔽消息 */
+  CONTRACT_STATUS_SUSPENDED = 3,
+  /** CONTRACT_STATUS_EXPIRING - 即将过期，需续期 */
+  CONTRACT_STATUS_EXPIRING = 4,
+  /** CONTRACT_STATUS_TERMINATED - 已终止，密钥失效 */
+  CONTRACT_STATUS_TERMINATED = 5,
+  UNRECOGNIZED = -1,
+}
+
+export function contractStatusFromJSON(object: any): ContractStatus {
+  switch (object) {
+    case 0:
+    case "CONTRACT_STATUS_UNSPECIFIED":
+      return ContractStatus.CONTRACT_STATUS_UNSPECIFIED;
+    case 1:
+    case "CONTRACT_STATUS_PENDING":
+      return ContractStatus.CONTRACT_STATUS_PENDING;
+    case 2:
+    case "CONTRACT_STATUS_ACTIVE":
+      return ContractStatus.CONTRACT_STATUS_ACTIVE;
+    case 3:
+    case "CONTRACT_STATUS_SUSPENDED":
+      return ContractStatus.CONTRACT_STATUS_SUSPENDED;
+    case 4:
+    case "CONTRACT_STATUS_EXPIRING":
+      return ContractStatus.CONTRACT_STATUS_EXPIRING;
+    case 5:
+    case "CONTRACT_STATUS_TERMINATED":
+      return ContractStatus.CONTRACT_STATUS_TERMINATED;
+    case -1:
+    case "UNRECOGNIZED":
+    default:
+      return ContractStatus.UNRECOGNIZED;
+  }
+}
+
+export function contractStatusToJSON(object: ContractStatus): string {
+  switch (object) {
+    case ContractStatus.CONTRACT_STATUS_UNSPECIFIED:
+      return "CONTRACT_STATUS_UNSPECIFIED";
+    case ContractStatus.CONTRACT_STATUS_PENDING:
+      return "CONTRACT_STATUS_PENDING";
+    case ContractStatus.CONTRACT_STATUS_ACTIVE:
+      return "CONTRACT_STATUS_ACTIVE";
+    case ContractStatus.CONTRACT_STATUS_SUSPENDED:
+      return "CONTRACT_STATUS_SUSPENDED";
+    case ContractStatus.CONTRACT_STATUS_EXPIRING:
+      return "CONTRACT_STATUS_EXPIRING";
+    case ContractStatus.CONTRACT_STATUS_TERMINATED:
+      return "CONTRACT_STATUS_TERMINATED";
+    case ContractStatus.UNRECOGNIZED:
+    default:
+      return "UNRECOGNIZED";
+  }
+}
+
 /** NodeIdentity 描述网络中的一个节点身份 */
 export interface NodeIdentity {
   $type: "synch.v1.NodeIdentity";
@@ -361,6 +509,52 @@ export interface SyncConfig {
   bandwidthLimitKbps: number;
   /** 移动网络同步策略 */
   mobileSyncPolicy: MobileSyncPolicy;
+}
+
+/** Contract 节点间的交互契约 */
+export interface Contract {
+  $type: "synch.v1.Contract";
+  /** 契约唯一 ID: Blake3(req_pk + target_pk + timestamp)[0:16] */
+  contractId: string;
+  /** 发起方公钥 (Ed25519) */
+  requesterId: Uint8Array;
+  /** 目标方公钥 (Ed25519) */
+  targetId: Uint8Array;
+  /** 授权的能力列表 */
+  capabilities: string[];
+  /** 契约创建时间 */
+  createdAt: number;
+  /** 契约过期时间 (0 = 永不过期) */
+  expiresAt: number;
+  /** 续期策略: "auto", "prompt", "expire" */
+  renewalPolicy: string;
+  /** 契约当前状态 */
+  status: ContractStatus;
+  /** 发起方签名 (证明意愿) */
+  requesterSignature: Uint8Array;
+  /** 目标方签名 (完成握手) */
+  targetSignature: Uint8Array;
+  /** 发起方配置的首选中继节点 URLs (如 ["wss://relay-a.local", "wss://public.synch"]) */
+  requesterRelays: string[];
+  /** 目标方配置的首选中继节点 URLs */
+  targetRelays: string[];
+}
+
+/** SecuredMessage 经过 E2EE 转换的消息封装 */
+export interface SecuredMessage {
+  $type: "synch.v1.SecuredMessage";
+  /** 关联的契约 ID */
+  contractId: string;
+  /** 发送者指纹 (L2+ 感知层下解耦身份) */
+  senderFingerprint: string;
+  /** 消息层级加密载荷 (AES-256-GCM) */
+  payload:
+    | EncryptedPayload
+    | undefined;
+  /** 消息发送时间 */
+  timestamp: number;
+  /** 签名 (由发送方 identity 签名 header || payload) */
+  signature: Uint8Array;
 }
 
 function createBaseNodeIdentity(): NodeIdentity {
@@ -1334,6 +1528,449 @@ export const SyncConfig: MessageFns<SyncConfig, "synch.v1.SyncConfig"> = {
 };
 
 messageTypeRegistry.set(SyncConfig.$type, SyncConfig);
+
+function createBaseContract(): Contract {
+  return {
+    $type: "synch.v1.Contract",
+    contractId: "",
+    requesterId: new Uint8Array(0),
+    targetId: new Uint8Array(0),
+    capabilities: [],
+    createdAt: 0,
+    expiresAt: 0,
+    renewalPolicy: "",
+    status: 0,
+    requesterSignature: new Uint8Array(0),
+    targetSignature: new Uint8Array(0),
+    requesterRelays: [],
+    targetRelays: [],
+  };
+}
+
+export const Contract: MessageFns<Contract, "synch.v1.Contract"> = {
+  $type: "synch.v1.Contract" as const,
+
+  encode(message: Contract, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.contractId !== "") {
+      writer.uint32(10).string(message.contractId);
+    }
+    if (message.requesterId.length !== 0) {
+      writer.uint32(18).bytes(message.requesterId);
+    }
+    if (message.targetId.length !== 0) {
+      writer.uint32(26).bytes(message.targetId);
+    }
+    for (const v of message.capabilities) {
+      writer.uint32(34).string(v!);
+    }
+    if (message.createdAt !== 0) {
+      writer.uint32(40).uint64(message.createdAt);
+    }
+    if (message.expiresAt !== 0) {
+      writer.uint32(48).uint64(message.expiresAt);
+    }
+    if (message.renewalPolicy !== "") {
+      writer.uint32(58).string(message.renewalPolicy);
+    }
+    if (message.status !== 0) {
+      writer.uint32(64).int32(message.status);
+    }
+    if (message.requesterSignature.length !== 0) {
+      writer.uint32(74).bytes(message.requesterSignature);
+    }
+    if (message.targetSignature.length !== 0) {
+      writer.uint32(82).bytes(message.targetSignature);
+    }
+    for (const v of message.requesterRelays) {
+      writer.uint32(90).string(v!);
+    }
+    for (const v of message.targetRelays) {
+      writer.uint32(98).string(v!);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): Contract {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseContract();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.contractId = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.requesterId = reader.bytes();
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.targetId = reader.bytes();
+          continue;
+        }
+        case 4: {
+          if (tag !== 34) {
+            break;
+          }
+
+          message.capabilities.push(reader.string());
+          continue;
+        }
+        case 5: {
+          if (tag !== 40) {
+            break;
+          }
+
+          message.createdAt = longToNumber(reader.uint64());
+          continue;
+        }
+        case 6: {
+          if (tag !== 48) {
+            break;
+          }
+
+          message.expiresAt = longToNumber(reader.uint64());
+          continue;
+        }
+        case 7: {
+          if (tag !== 58) {
+            break;
+          }
+
+          message.renewalPolicy = reader.string();
+          continue;
+        }
+        case 8: {
+          if (tag !== 64) {
+            break;
+          }
+
+          message.status = reader.int32() as any;
+          continue;
+        }
+        case 9: {
+          if (tag !== 74) {
+            break;
+          }
+
+          message.requesterSignature = reader.bytes();
+          continue;
+        }
+        case 10: {
+          if (tag !== 82) {
+            break;
+          }
+
+          message.targetSignature = reader.bytes();
+          continue;
+        }
+        case 11: {
+          if (tag !== 90) {
+            break;
+          }
+
+          message.requesterRelays.push(reader.string());
+          continue;
+        }
+        case 12: {
+          if (tag !== 98) {
+            break;
+          }
+
+          message.targetRelays.push(reader.string());
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): Contract {
+    return {
+      $type: Contract.$type,
+      contractId: isSet(object.contractId)
+        ? globalThis.String(object.contractId)
+        : isSet(object.contract_id)
+        ? globalThis.String(object.contract_id)
+        : "",
+      requesterId: isSet(object.requesterId)
+        ? bytesFromBase64(object.requesterId)
+        : isSet(object.requester_id)
+        ? bytesFromBase64(object.requester_id)
+        : new Uint8Array(0),
+      targetId: isSet(object.targetId)
+        ? bytesFromBase64(object.targetId)
+        : isSet(object.target_id)
+        ? bytesFromBase64(object.target_id)
+        : new Uint8Array(0),
+      capabilities: globalThis.Array.isArray(object?.capabilities)
+        ? object.capabilities.map((e: any) => globalThis.String(e))
+        : [],
+      createdAt: isSet(object.createdAt)
+        ? globalThis.Number(object.createdAt)
+        : isSet(object.created_at)
+        ? globalThis.Number(object.created_at)
+        : 0,
+      expiresAt: isSet(object.expiresAt)
+        ? globalThis.Number(object.expiresAt)
+        : isSet(object.expires_at)
+        ? globalThis.Number(object.expires_at)
+        : 0,
+      renewalPolicy: isSet(object.renewalPolicy)
+        ? globalThis.String(object.renewalPolicy)
+        : isSet(object.renewal_policy)
+        ? globalThis.String(object.renewal_policy)
+        : "",
+      status: isSet(object.status) ? contractStatusFromJSON(object.status) : 0,
+      requesterSignature: isSet(object.requesterSignature)
+        ? bytesFromBase64(object.requesterSignature)
+        : isSet(object.requester_signature)
+        ? bytesFromBase64(object.requester_signature)
+        : new Uint8Array(0),
+      targetSignature: isSet(object.targetSignature)
+        ? bytesFromBase64(object.targetSignature)
+        : isSet(object.target_signature)
+        ? bytesFromBase64(object.target_signature)
+        : new Uint8Array(0),
+      requesterRelays: globalThis.Array.isArray(object?.requesterRelays)
+        ? object.requesterRelays.map((e: any) => globalThis.String(e))
+        : globalThis.Array.isArray(object?.requester_relays)
+        ? object.requester_relays.map((e: any) => globalThis.String(e))
+        : [],
+      targetRelays: globalThis.Array.isArray(object?.targetRelays)
+        ? object.targetRelays.map((e: any) => globalThis.String(e))
+        : globalThis.Array.isArray(object?.target_relays)
+        ? object.target_relays.map((e: any) => globalThis.String(e))
+        : [],
+    };
+  },
+
+  toJSON(message: Contract): unknown {
+    const obj: any = {};
+    if (message.contractId !== "") {
+      obj.contractId = message.contractId;
+    }
+    if (message.requesterId.length !== 0) {
+      obj.requesterId = base64FromBytes(message.requesterId);
+    }
+    if (message.targetId.length !== 0) {
+      obj.targetId = base64FromBytes(message.targetId);
+    }
+    if (message.capabilities?.length) {
+      obj.capabilities = message.capabilities;
+    }
+    if (message.createdAt !== 0) {
+      obj.createdAt = Math.round(message.createdAt);
+    }
+    if (message.expiresAt !== 0) {
+      obj.expiresAt = Math.round(message.expiresAt);
+    }
+    if (message.renewalPolicy !== "") {
+      obj.renewalPolicy = message.renewalPolicy;
+    }
+    if (message.status !== 0) {
+      obj.status = contractStatusToJSON(message.status);
+    }
+    if (message.requesterSignature.length !== 0) {
+      obj.requesterSignature = base64FromBytes(message.requesterSignature);
+    }
+    if (message.targetSignature.length !== 0) {
+      obj.targetSignature = base64FromBytes(message.targetSignature);
+    }
+    if (message.requesterRelays?.length) {
+      obj.requesterRelays = message.requesterRelays;
+    }
+    if (message.targetRelays?.length) {
+      obj.targetRelays = message.targetRelays;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<Contract>, I>>(base?: I): Contract {
+    return Contract.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<Contract>, I>>(object: I): Contract {
+    const message = createBaseContract();
+    message.contractId = object.contractId ?? "";
+    message.requesterId = object.requesterId ?? new Uint8Array(0);
+    message.targetId = object.targetId ?? new Uint8Array(0);
+    message.capabilities = object.capabilities?.map((e) => e) || [];
+    message.createdAt = object.createdAt ?? 0;
+    message.expiresAt = object.expiresAt ?? 0;
+    message.renewalPolicy = object.renewalPolicy ?? "";
+    message.status = object.status ?? 0;
+    message.requesterSignature = object.requesterSignature ?? new Uint8Array(0);
+    message.targetSignature = object.targetSignature ?? new Uint8Array(0);
+    message.requesterRelays = object.requesterRelays?.map((e) => e) || [];
+    message.targetRelays = object.targetRelays?.map((e) => e) || [];
+    return message;
+  },
+};
+
+messageTypeRegistry.set(Contract.$type, Contract);
+
+function createBaseSecuredMessage(): SecuredMessage {
+  return {
+    $type: "synch.v1.SecuredMessage",
+    contractId: "",
+    senderFingerprint: "",
+    payload: undefined,
+    timestamp: 0,
+    signature: new Uint8Array(0),
+  };
+}
+
+export const SecuredMessage: MessageFns<SecuredMessage, "synch.v1.SecuredMessage"> = {
+  $type: "synch.v1.SecuredMessage" as const,
+
+  encode(message: SecuredMessage, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.contractId !== "") {
+      writer.uint32(10).string(message.contractId);
+    }
+    if (message.senderFingerprint !== "") {
+      writer.uint32(18).string(message.senderFingerprint);
+    }
+    if (message.payload !== undefined) {
+      EncryptedPayload.encode(message.payload, writer.uint32(26).fork()).join();
+    }
+    if (message.timestamp !== 0) {
+      writer.uint32(32).uint64(message.timestamp);
+    }
+    if (message.signature.length !== 0) {
+      writer.uint32(42).bytes(message.signature);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): SecuredMessage {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseSecuredMessage();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.contractId = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.senderFingerprint = reader.string();
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.payload = EncryptedPayload.decode(reader, reader.uint32());
+          continue;
+        }
+        case 4: {
+          if (tag !== 32) {
+            break;
+          }
+
+          message.timestamp = longToNumber(reader.uint64());
+          continue;
+        }
+        case 5: {
+          if (tag !== 42) {
+            break;
+          }
+
+          message.signature = reader.bytes();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): SecuredMessage {
+    return {
+      $type: SecuredMessage.$type,
+      contractId: isSet(object.contractId)
+        ? globalThis.String(object.contractId)
+        : isSet(object.contract_id)
+        ? globalThis.String(object.contract_id)
+        : "",
+      senderFingerprint: isSet(object.senderFingerprint)
+        ? globalThis.String(object.senderFingerprint)
+        : isSet(object.sender_fingerprint)
+        ? globalThis.String(object.sender_fingerprint)
+        : "",
+      payload: isSet(object.payload) ? EncryptedPayload.fromJSON(object.payload) : undefined,
+      timestamp: isSet(object.timestamp) ? globalThis.Number(object.timestamp) : 0,
+      signature: isSet(object.signature) ? bytesFromBase64(object.signature) : new Uint8Array(0),
+    };
+  },
+
+  toJSON(message: SecuredMessage): unknown {
+    const obj: any = {};
+    if (message.contractId !== "") {
+      obj.contractId = message.contractId;
+    }
+    if (message.senderFingerprint !== "") {
+      obj.senderFingerprint = message.senderFingerprint;
+    }
+    if (message.payload !== undefined) {
+      obj.payload = EncryptedPayload.toJSON(message.payload);
+    }
+    if (message.timestamp !== 0) {
+      obj.timestamp = Math.round(message.timestamp);
+    }
+    if (message.signature.length !== 0) {
+      obj.signature = base64FromBytes(message.signature);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<SecuredMessage>, I>>(base?: I): SecuredMessage {
+    return SecuredMessage.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<SecuredMessage>, I>>(object: I): SecuredMessage {
+    const message = createBaseSecuredMessage();
+    message.contractId = object.contractId ?? "";
+    message.senderFingerprint = object.senderFingerprint ?? "";
+    message.payload = (object.payload !== undefined && object.payload !== null)
+      ? EncryptedPayload.fromPartial(object.payload)
+      : undefined;
+    message.timestamp = object.timestamp ?? 0;
+    message.signature = object.signature ?? new Uint8Array(0);
+    return message;
+  },
+};
+
+messageTypeRegistry.set(SecuredMessage.$type, SecuredMessage);
 
 function bytesFromBase64(b64: string): Uint8Array {
   const bin = globalThis.atob(b64);
