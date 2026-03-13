@@ -40,7 +40,7 @@ function App() {
 
           <div className="info-card">
             <div className="card-label">Target Server</div>
-            <div className="card-value">ws://localhost:8081</div>
+            <div className="card-value">ws://localhost:8080/ws</div>
           </div>
         </main>
 

@@ -17,6 +17,35 @@ pub struct EncryptedPayload {
     pub sender_public_key: Option<Vec<u8>>,
 }
 
+/// SealedBox provides high-level authenticated encryption with associated data (AAD).
+/// It ensures that the ciphertext is bound to a specific context (e.g. Vault ID).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SealedBox {
+    pub payload: EncryptedPayload,
+    pub ad: Vec<u8>,
+}
+
+impl SealedBox {
+    pub fn seal(
+        key: &[u8; 32],
+        plaintext: &[u8],
+        ad: &[u8],
+    ) -> Result<Self, CryptoError> {
+        let payload = encrypt_aes_gcm(key, plaintext, Some(ad))?;
+        Ok(Self {
+            payload,
+            ad: ad.to_vec(),
+        })
+    }
+
+    pub fn open(
+        &self,
+        key: &[u8; 32],
+    ) -> Result<Vec<u8>, CryptoError> {
+        decrypt_aes_gcm(key, &self.payload, Some(&self.ad))
+    }
+}
+
 /// Encrypt data using AES-256-GCM with a 32-byte key.
 /// The nonce is generated randomly.
 pub fn encrypt_aes_gcm(
@@ -93,11 +122,13 @@ pub fn decrypt_aes_gcm(
 }
 
 /// Derive a symmetric key from an X25519 shared secret using HKDF-Blake3
-pub fn derive_symmetric_key(shared_secret: &[u8; 32], info: &[u8]) -> [u8; 32] {
+/// The context string prevents key reuse across different protocols or layers.
+pub fn derive_symmetric_key(shared_secret: &[u8; 32], context: &str) -> [u8; 32] {
     // Use Blake3 keyed hash as a simple KDF
     let mut key = [0u8; 32];
     let mut hasher = blake3::Hasher::new_keyed(shared_secret);
-    hasher.update(info);
+    hasher.update(b"SYNCH_V1_KDF");
+    hasher.update(context.as_bytes());
     let output = hasher.finalize();
     key.copy_from_slice(output.as_bytes());
     key

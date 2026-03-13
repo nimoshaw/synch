@@ -259,6 +259,8 @@ func (PresenceStatus) EnumDescriptor() ([]byte, []int) {
 // SyncMessage 是客户端与服务端之间的同步协议帧
 type SyncMessage struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
+	// 逻辑发送方 ID (当通过 Plugin 中继时使用)
+	SenderId string `protobuf:"bytes,7,opt,name=sender_id,json=senderId,proto3" json:"sender_id,omitempty"`
 	// Types that are valid to be assigned to Payload:
 	//
 	//	*SyncMessage_Handshake
@@ -300,6 +302,13 @@ func (x *SyncMessage) ProtoReflect() protoreflect.Message {
 // Deprecated: Use SyncMessage.ProtoReflect.Descriptor instead.
 func (*SyncMessage) Descriptor() ([]byte, []int) {
 	return file_v1_sync_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *SyncMessage) GetSenderId() string {
+	if x != nil {
+		return x.SenderId
+	}
+	return ""
 }
 
 func (x *SyncMessage) GetPayload() isSyncMessage_Payload {
@@ -1091,8 +1100,9 @@ var File_v1_sync_proto protoreflect.FileDescriptor
 
 const file_v1_sync_proto_rawDesc = "" +
 	"\n" +
-	"\rv1/sync.proto\x12\bsynch.v1\x1a\x0fv1/crypto.proto\"\xd3\x02\n" +
-	"\vSyncMessage\x128\n" +
+	"\rv1/sync.proto\x12\bsynch.v1\x1a\x0fv1/crypto.proto\"\xf0\x02\n" +
+	"\vSyncMessage\x12\x1b\n" +
+	"\tsender_id\x18\a \x01(\tR\bsenderId\x128\n" +
 	"\thandshake\x18\x01 \x01(\v2\x18.synch.v1.VaultHandshakeH\x00R\thandshake\x12/\n" +
 	"\x05delta\x18\x02 \x01(\v2\x17.synch.v1.DeltaManifestH\x00R\x05delta\x12&\n" +
 	"\x03ack\x18\x03 \x01(\v2\x12.synch.v1.DeltaAckH\x00R\x03ack\x128\n" +

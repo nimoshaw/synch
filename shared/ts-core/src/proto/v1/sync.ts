@@ -252,6 +252,8 @@ export function presenceStatusToJSON(object: PresenceStatus): string {
 /** SyncMessage 是客户端与服务端之间的同步协议帧 */
 export interface SyncMessage {
   $type: "synch.v1.SyncMessage";
+  /** 逻辑发送方 ID (当通过 Plugin 中继时使用) */
+  senderId: string;
   handshake?: VaultHandshake | undefined;
   delta?: DeltaManifest | undefined;
   ack?: DeltaAck | undefined;
@@ -389,6 +391,7 @@ export interface PresenceUpdate {
 function createBaseSyncMessage(): SyncMessage {
   return {
     $type: "synch.v1.SyncMessage",
+    senderId: "",
     handshake: undefined,
     delta: undefined,
     ack: undefined,
@@ -402,6 +405,9 @@ export const SyncMessage: MessageFns<SyncMessage, "synch.v1.SyncMessage"> = {
   $type: "synch.v1.SyncMessage" as const,
 
   encode(message: SyncMessage, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.senderId !== "") {
+      writer.uint32(58).string(message.senderId);
+    }
     if (message.handshake !== undefined) {
       VaultHandshake.encode(message.handshake, writer.uint32(10).fork()).join();
     }
@@ -430,6 +436,14 @@ export const SyncMessage: MessageFns<SyncMessage, "synch.v1.SyncMessage"> = {
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
+        case 7: {
+          if (tag !== 58) {
+            break;
+          }
+
+          message.senderId = reader.string();
+          continue;
+        }
         case 1: {
           if (tag !== 10) {
             break;
@@ -490,6 +504,11 @@ export const SyncMessage: MessageFns<SyncMessage, "synch.v1.SyncMessage"> = {
   fromJSON(object: any): SyncMessage {
     return {
       $type: SyncMessage.$type,
+      senderId: isSet(object.senderId)
+        ? globalThis.String(object.senderId)
+        : isSet(object.sender_id)
+        ? globalThis.String(object.sender_id)
+        : "",
       handshake: isSet(object.handshake) ? VaultHandshake.fromJSON(object.handshake) : undefined,
       delta: isSet(object.delta) ? DeltaManifest.fromJSON(object.delta) : undefined,
       ack: isSet(object.ack) ? DeltaAck.fromJSON(object.ack) : undefined,
@@ -501,6 +520,9 @@ export const SyncMessage: MessageFns<SyncMessage, "synch.v1.SyncMessage"> = {
 
   toJSON(message: SyncMessage): unknown {
     const obj: any = {};
+    if (message.senderId !== "") {
+      obj.senderId = message.senderId;
+    }
     if (message.handshake !== undefined) {
       obj.handshake = VaultHandshake.toJSON(message.handshake);
     }
@@ -527,6 +549,7 @@ export const SyncMessage: MessageFns<SyncMessage, "synch.v1.SyncMessage"> = {
   },
   fromPartial<I extends Exact<DeepPartial<SyncMessage>, I>>(object: I): SyncMessage {
     const message = createBaseSyncMessage();
+    message.senderId = object.senderId ?? "";
     message.handshake = (object.handshake !== undefined && object.handshake !== null)
       ? VaultHandshake.fromPartial(object.handshake)
       : undefined;

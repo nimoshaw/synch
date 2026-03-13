@@ -35,12 +35,26 @@ The primary frame for relay communication.
 
 ## 📡 Relay Server Interface
 
-The Relay Server communicates primarily via **WebSockets**.
+The Relay Server provides both **WebSockets** for real-time synchronization and **HTTP** for health monitoring and metrics.
 
-### Connection Flow
-1. **Handshake**: Client connects to `wss://<host>:<port>`.
-2. **Auth**: Client sends an `AUTH` message signed by their private key.
-3. **Session**: Server acknowledges and opens a sync stream.
-4. **Sync**: Client and Server exchange `DELTA` updates.
+### HTTP Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | `GET` | Returns `200 OK` if the server is healthy. |
+| `/metrics` | `GET` | Returns Prometheus metrics (connections, message rates, etc). |
+
+---
+
+### WebSocket Connection Flow
+
+1. **Handshake**: Client connects to `wss://<host>/ws` (Production) or `ws://<host>:8080/ws` (Development).
+2. **Handshake Verification**:
+    - Production uses **Nginx** for SSL/TLS termination and WSS upgrades.
+    - Ensure headers `Upgrade: websocket` and `Connection: Upgrade` are provided.
+3. **Auth**: Client sends an `AUTH` message signed by their private key.
+4. **Session**: Server acknowledges and opens a sync stream.
+5. **Sync**: Client and Server exchange `DELTA` updates.
 
 For detailed message definitions, see [proto/v1/synch.proto](../proto/v1/synch.proto).
+

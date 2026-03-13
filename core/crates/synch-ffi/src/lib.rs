@@ -202,6 +202,62 @@ pub fn generate_ed25519_keypair_uniffi() -> Result<Ed25519KeyResult, SynchError>
     })
 }
 
+// ─── Vault UniFFI Wrapper ────────────────────────────────────────────────────
+
+#[derive(uniffi::Object)]
+pub struct SynchVault {
+    inner: std::sync::Arc<std::sync::Mutex<Vault>>,
+}
+
+#[uniffi::export]
+impl SynchVault {
+    #[uniffi::constructor]
+    pub fn new(vault_id: String) -> Self {
+        Self {
+            inner: std::sync::Arc::new(std::sync::Mutex::new(Vault::new(vault_id))),
+        }
+    }
+
+    pub fn get_version(&self) -> u64 {
+        self.inner.lock().unwrap().version
+    }
+
+    pub fn get_vault_id(&self) -> String {
+        self.inner.lock().unwrap().vault_id.clone()
+    }
+
+    /// Apply a mock update to verify version increments and state persistence
+    pub fn apply_mock_update(&self, path: String, content: String) {
+        let mut vault = self.inner.lock().unwrap();
+        let node_id = "mobile-test-node".to_string();
+        let seq = vault.version + 1;
+        
+        // Construct a simple delta batch
+        let delta = DeltaBatch {
+            vault_id: vault.vault_id.clone(),
+            sender_id: node_id.clone(),
+            base_version: vault.version,
+            new_version: seq,
+            entries: vec![DeltaEntry {
+                path,
+                operation: EntryOperation::Write,
+                content: Some(content.into_bytes()),
+                timestamp: 123456789,
+            }],
+            version_vector: vault.version_vector.clone(),
+        };
+
+        let _ = vault.apply_delta(delta);
+    }
+}
+
+impl Drop for SynchVault {
+    fn drop(&mut self) {
+        // This log will appear in logcat for Android debugging
+        println!("[SynchVault] Rust object is being dropped. Resources released.");
+    }
+}
+
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 #[cfg(test)]

@@ -291,6 +291,16 @@ export interface NodeIdentity {
   registeredAt: number;
   /** 人类可读的显示名称 */
   displayName: string;
+  /** 父节点 ID (用于 Plugin -> Agent 的 1:N 关系) */
+  parentNodeId: string;
+  /** 扩展元数据 (如环境标签、版本等) */
+  metadata: { [key: string]: string };
+}
+
+export interface NodeIdentity_MetadataEntry {
+  $type: "synch.v1.NodeIdentity.MetadataEntry";
+  key: string;
+  value: string;
 }
 
 /** ServerEndpoint 描述一个客户端连接的服务端 */
@@ -363,6 +373,8 @@ function createBaseNodeIdentity(): NodeIdentity {
     capabilities: [],
     registeredAt: 0,
     displayName: "",
+    parentNodeId: "",
+    metadata: {},
   };
 }
 
@@ -391,6 +403,15 @@ export const NodeIdentity: MessageFns<NodeIdentity, "synch.v1.NodeIdentity"> = {
     if (message.displayName !== "") {
       writer.uint32(58).string(message.displayName);
     }
+    if (message.parentNodeId !== "") {
+      writer.uint32(66).string(message.parentNodeId);
+    }
+    globalThis.Object.entries(message.metadata).forEach(([key, value]: [string, string]) => {
+      NodeIdentity_MetadataEntry.encode(
+        { $type: "synch.v1.NodeIdentity.MetadataEntry", key: key as any, value },
+        writer.uint32(74).fork(),
+      ).join();
+    });
     return writer;
   },
 
@@ -457,6 +478,25 @@ export const NodeIdentity: MessageFns<NodeIdentity, "synch.v1.NodeIdentity"> = {
           message.displayName = reader.string();
           continue;
         }
+        case 8: {
+          if (tag !== 66) {
+            break;
+          }
+
+          message.parentNodeId = reader.string();
+          continue;
+        }
+        case 9: {
+          if (tag !== 74) {
+            break;
+          }
+
+          const entry9 = NodeIdentity_MetadataEntry.decode(reader, reader.uint32());
+          if (entry9.value !== undefined) {
+            message.metadata[entry9.key] = entry9.value;
+          }
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -498,6 +538,20 @@ export const NodeIdentity: MessageFns<NodeIdentity, "synch.v1.NodeIdentity"> = {
         : isSet(object.display_name)
         ? globalThis.String(object.display_name)
         : "",
+      parentNodeId: isSet(object.parentNodeId)
+        ? globalThis.String(object.parentNodeId)
+        : isSet(object.parent_node_id)
+        ? globalThis.String(object.parent_node_id)
+        : "",
+      metadata: isObject(object.metadata)
+        ? (globalThis.Object.entries(object.metadata) as [string, any][]).reduce(
+          (acc: { [key: string]: string }, [key, value]: [string, any]) => {
+            acc[key] = globalThis.String(value);
+            return acc;
+          },
+          {},
+        )
+        : {},
     };
   },
 
@@ -524,6 +578,18 @@ export const NodeIdentity: MessageFns<NodeIdentity, "synch.v1.NodeIdentity"> = {
     if (message.displayName !== "") {
       obj.displayName = message.displayName;
     }
+    if (message.parentNodeId !== "") {
+      obj.parentNodeId = message.parentNodeId;
+    }
+    if (message.metadata) {
+      const entries = globalThis.Object.entries(message.metadata) as [string, string][];
+      if (entries.length > 0) {
+        obj.metadata = {};
+        entries.forEach(([k, v]) => {
+          obj.metadata[k] = v;
+        });
+      }
+    }
     return obj;
   },
 
@@ -539,11 +605,103 @@ export const NodeIdentity: MessageFns<NodeIdentity, "synch.v1.NodeIdentity"> = {
     message.capabilities = object.capabilities?.map((e) => e) || [];
     message.registeredAt = object.registeredAt ?? 0;
     message.displayName = object.displayName ?? "";
+    message.parentNodeId = object.parentNodeId ?? "";
+    message.metadata = (globalThis.Object.entries(object.metadata ?? {}) as [string, string][]).reduce(
+      (acc: { [key: string]: string }, [key, value]: [string, string]) => {
+        if (value !== undefined) {
+          acc[key] = globalThis.String(value);
+        }
+        return acc;
+      },
+      {},
+    );
     return message;
   },
 };
 
 messageTypeRegistry.set(NodeIdentity.$type, NodeIdentity);
+
+function createBaseNodeIdentity_MetadataEntry(): NodeIdentity_MetadataEntry {
+  return { $type: "synch.v1.NodeIdentity.MetadataEntry", key: "", value: "" };
+}
+
+export const NodeIdentity_MetadataEntry: MessageFns<NodeIdentity_MetadataEntry, "synch.v1.NodeIdentity.MetadataEntry"> =
+  {
+    $type: "synch.v1.NodeIdentity.MetadataEntry" as const,
+
+    encode(message: NodeIdentity_MetadataEntry, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+      if (message.key !== "") {
+        writer.uint32(10).string(message.key);
+      }
+      if (message.value !== "") {
+        writer.uint32(18).string(message.value);
+      }
+      return writer;
+    },
+
+    decode(input: BinaryReader | Uint8Array, length?: number): NodeIdentity_MetadataEntry {
+      const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseNodeIdentity_MetadataEntry();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.key = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.value = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    },
+
+    fromJSON(object: any): NodeIdentity_MetadataEntry {
+      return {
+        $type: NodeIdentity_MetadataEntry.$type,
+        key: isSet(object.key) ? globalThis.String(object.key) : "",
+        value: isSet(object.value) ? globalThis.String(object.value) : "",
+      };
+    },
+
+    toJSON(message: NodeIdentity_MetadataEntry): unknown {
+      const obj: any = {};
+      if (message.key !== "") {
+        obj.key = message.key;
+      }
+      if (message.value !== "") {
+        obj.value = message.value;
+      }
+      return obj;
+    },
+
+    create<I extends Exact<DeepPartial<NodeIdentity_MetadataEntry>, I>>(base?: I): NodeIdentity_MetadataEntry {
+      return NodeIdentity_MetadataEntry.fromPartial(base ?? ({} as any));
+    },
+    fromPartial<I extends Exact<DeepPartial<NodeIdentity_MetadataEntry>, I>>(object: I): NodeIdentity_MetadataEntry {
+      const message = createBaseNodeIdentity_MetadataEntry();
+      message.key = object.key ?? "";
+      message.value = object.value ?? "";
+      return message;
+    },
+  };
+
+messageTypeRegistry.set(NodeIdentity_MetadataEntry.$type, NodeIdentity_MetadataEntry);
 
 function createBaseServerEndpoint(): ServerEndpoint {
   return {

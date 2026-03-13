@@ -48,6 +48,22 @@ tasks:
     cmds:
       - docker compose up -d
 
+  debug:core:
+    desc: 构建并测试 Rust 核心库 (带详细日志)
+    dir: core
+    objs:
+      - RUST_LOG: debug
+      - RUST_BACKTRACE: 1
+    cmds:
+      - cargo test -- --nocapture
+
+  debug:relay:
+    desc: 启动本地中继服务器 (JSON Debug Logs)
+    dir: server
+    cmds:
+      - go run cmd/relay/main.go -addr :8080 -log debug
+
+
   test:all:
     desc: 运行所有测试
     cmds:
@@ -83,15 +99,16 @@ tasks:
       - 'echo "Please confirm by running: docker compose -f docker-compose.prod.yml up -d"'
 
   release:check:
-    desc: 验证发布准备是否就绪 (v0.1.0)
+    desc: 验证发布准备是否就绪 (v0.1.1)
     cmds:
       - echo "Checking version numbers..."
-      - powershell -Command "Select-String '0.1.0' core/Cargo.toml"
-      - powershell -Command "Select-String '0.1.0' clients/plugins/vcp-agent/package.json"
-      - powershell -Command "Select-String '0.1.0' clients/mobile/android/app/build.gradle.kts"
+      - powershell -Command "Select-String '0.1.1' core/Cargo.toml"
+      - powershell -Command "Select-String '0.1.1' clients/plugins/vcp-agent/package.json"
+      - powershell -Command "Select-String '0.1.1' clients/mobile/android/app/build.gradle.kts"
       - echo "Checking documentation..."
       - powershell -Command "if (Test-Path README.md) { echo 'README OK' } else { exit 1 }"
       - powershell -Command "if (Test-Path docs/API.md) { echo 'API OK' } else { exit 1 }"
+      - powershell -Command "if (Test-Path docs/DEBUGGING.md) { echo 'DEBUGGING OK' } else { exit 1 }"
       - powershell -Command "if (Test-Path docs/CONTRIBUTING.md) { echo 'CONTRIBUTING OK' } else { exit 1 }"
       - powershell -Command "if (Test-Path docs/SECURITY.md) { echo 'SECURITY OK' } else { exit 1 }"
       - powershell -Command "if (Test-Path docs/ROADMAP.md) { echo 'ROADMAP OK' } else { exit 1 }"
@@ -100,4 +117,5 @@ tasks:
       - echo "Checking project governance..."
       - powershell -Command "if (Test-Path .github/ISSUE_TEMPLATE/bug_report.md) { echo 'Bug Report OK' } else { exit 1 }"
       - powershell -Command "if (Test-Path .github/dependabot.yml) { echo 'Dependabot OK' } else { exit 1 }"
-      - echo "All release checks passed for v0.1.0!"
+      - echo "All release checks passed for v0.1.1!"
+

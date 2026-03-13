@@ -19,10 +19,13 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o synch-relay ./cmd/relay
 # Final stage
 FROM alpine:3.19
 
-WORKDIR /root/
+WORKDIR /app
 
 COPY --from=builder /app/synch-relay .
+COPY healthcheck.sh .
+RUN chmod +x healthcheck.sh
 
 EXPOSE 8080
 
 CMD ["./synch-relay"]
+

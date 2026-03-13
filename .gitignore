@@ -1,24 +1,33 @@
-﻿# Rust
-target/
+# Rust
+**/target/
 **/*.rs.bk
 Cargo.lock
 
 # Go
-*.exe
-*.exe~
-*.dll
-*.so
-*.dylib
-*.test
-*.out
+**/*.exe
+**/*.exe~
+**/*.dll
+**/*.so
+**/*.dylib
+**/*.test
+**/*.out
+**/relay
 vendor/
 
 # Node/TS
-node_modules/
-build/
-dist/
+**/node_modules/
+**/dist/
+**/build/
 .npm
 .eslintcache
+
+# Android
+.gradle/
+**/build/
+captures/
+*.apk
+*.aar
+*.jks
 
 # Environment
 .env
@@ -39,7 +48,9 @@ Thumbs.db
 *.log
 logs/
 
-# Test Coverage
+# Test Coverage & Reports
 coverage/
+**/html/
 *.profraw
 *.profdata
+

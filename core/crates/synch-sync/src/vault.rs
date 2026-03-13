@@ -35,8 +35,10 @@ pub struct ConflictRecord {
     pub path: String,
     pub local_node_id: String,
     pub local_seq: u64,
+    pub local_hash: Option<String>,
     pub remote_node_id: String,
     pub remote_seq: u64,
+    pub remote_hash: Option<String>,
 }
 
 /// In-memory Vault state with delta log replay and conflict detection
@@ -99,42 +101,49 @@ impl Vault {
     /// Apply a single DeltaEntry to the vault.
     /// Performs conflict detection using version vectors.
     pub fn apply_delta(&mut self, entry: DeltaEntry) -> Result<(), SyncError> {
+        // Check for duplicate or older deltas from the same node
+        if self.version_vector.get(&entry.origin_node_id) >= entry.origin_sequence {
+            // Already seen this or a newer update from this node — ignore
+            return Ok(());
+        }
+
         // Check for concurrent modifications (conflict detection)
         if let Some(existing) = self.entries.get(&entry.path) {
             let existing_seq = existing.last_modified_seq;
             let existing_node = &existing.last_modified_by;
 
-            // If the existing entry was made by a DIFFERENT node and both seqs are non-zero,
-            // and neither dominates the other, it's a conflict
-            if existing_node != &entry.origin_node_id
-                && existing_seq > 0
-                && entry.origin_sequence > 0
-            {
+            // If the existing entry was made by a DIFFERENT node, check for conflict
+            if existing_node != &entry.origin_node_id {
                 // Last-Write-Wins using modified_at timestamp (LWW strategy)
-                // More sophisticated resolution would use version vectors
                 let existing_modified = existing.modified_at;
+                
                 if entry.modified_at < existing_modified {
-                    // Incoming delta is older — record conflict but prefer existing (LWW)
+                    // Incoming delta is older — record conflict and skip apply (local wins)
                     self.conflicts.push(ConflictRecord {
                         path: entry.path.clone(),
                         local_node_id: existing_node.clone(),
                         local_seq: existing_seq,
+                        local_hash: existing.content_hash.clone(),
                         remote_node_id: entry.origin_node_id.clone(),
                         remote_seq: entry.origin_sequence,
+                        remote_hash: entry.content_hash.clone(),
                     });
-                    // Skip apply (local wins)
+                    
+                    self.version_vector.update(&entry.origin_node_id, entry.origin_sequence);
+                    self.delta_log.push(entry);
+                    self.version += 1;
                     return Ok(());
-                }
-                // If incoming is newer, apply it and record conflict
-                if entry.modified_at > existing_modified {
+                } else {
+                    // Incoming is newer or same timestamp — record conflict but apply it
                     self.conflicts.push(ConflictRecord {
                         path: entry.path.clone(),
                         local_node_id: existing_node.clone(),
                         local_seq: existing_seq,
+                        local_hash: existing.content_hash.clone(),
                         remote_node_id: entry.origin_node_id.clone(),
                         remote_seq: entry.origin_sequence,
+                        remote_hash: entry.content_hash.clone(),
                     });
-                    // Fall through to apply remote (remote/newer wins)
                 }
             }
         }
@@ -210,6 +219,32 @@ impl Vault {
         }
         Ok(count)
     }
+
+    /// Prune the delta log by keeping only the latest delta for each unique path.
+    /// This is a simple compaction strategy to prevent unbounded log growth.
+    /// WARNING: Pruning can make it impossible for very out-of-sync nodes to
+    /// catch up using only the delta log; they would need a full state transfer.
+    pub fn compact_log(&mut self) {
+        let mut latest_deltas: HashMap<String, usize> = HashMap::new();
+        
+        // Find the index of the latest delta for each path
+        for (i, entry) in self.delta_log.iter().enumerate() {
+            latest_deltas.insert(entry.path.clone(), i);
+        }
+
+        // Collect the indices to keep, maintaining order
+        let mut keep_indices: Vec<usize> = latest_deltas.values().cloned().collect();
+        keep_indices.sort_unstable();
+
+        let mut new_log = Vec::with_capacity(keep_indices.len());
+        for idx in keep_indices {
+            new_log.push(self.delta_log[idx].clone());
+        }
+
+        self.delta_log = new_log;
+        // Note: we don't reset 'self.version' as it represents the causal history count,
+        // but the log itself is now smaller.
+    }
 }
 
 #[cfg(test)]
@@ -279,5 +314,33 @@ mod tests {
         let applied = vault.apply_batch(batch).unwrap();
         assert_eq!(applied, 2);
         assert_eq!(vault.live_entries().len(), 2);
+    }
+
+    #[test]
+    fn test_vault_log_compaction() {
+        let mut vault = Vault::new("test-vault-compact");
+        let node_a = "node-A";
+
+        // Create, then modify multiple times
+        vault.apply_delta(DeltaEntry::new_create("a.txt", b"v1".to_vec(), node_a, 1, 1000)).unwrap();
+        vault.apply_delta(DeltaEntry::new_modify("a.txt", b"v2".to_vec(), node_a, 2, 1100)).unwrap();
+        vault.apply_delta(DeltaEntry::new_modify("a.txt", b"v3".to_vec(), node_a, 3, 1200)).unwrap();
+        
+        vault.apply_delta(DeltaEntry::new_create("b.txt", b"b1".to_vec(), node_a, 4, 1300)).unwrap();
+
+        assert_eq!(vault.delta_log.len(), 4);
+        assert_eq!(vault.version, 4);
+
+        vault.compact_log();
+
+        // Should now have only 2 deltas (latest for a.txt and b.txt)
+        assert_eq!(vault.delta_log.len(), 2);
+        assert_eq!(vault.delta_log[0].path, "a.txt");
+        assert_eq!(vault.delta_log[0].origin_sequence, 3);
+        assert_eq!(vault.delta_log[1].path, "b.txt");
+        
+        // Version (causal clock) should remain 4
+        assert_eq!(vault.version, 4);
+        assert_eq!(vault.get_entry("a.txt").unwrap().content, Some(b"v3".to_vec()));
     }
 }

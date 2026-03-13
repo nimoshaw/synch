@@ -311,7 +311,11 @@ type NodeIdentity struct {
 	// 注册时间 (Unix epoch millis)
 	RegisteredAt uint64 `protobuf:"varint,6,opt,name=registered_at,json=registeredAt,proto3" json:"registered_at,omitempty"`
 	// 人类可读的显示名称
-	DisplayName   string `protobuf:"bytes,7,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	DisplayName string `protobuf:"bytes,7,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	// 父节点 ID (用于 Plugin -> Agent 的 1:N 关系)
+	ParentNodeId string `protobuf:"bytes,8,opt,name=parent_node_id,json=parentNodeId,proto3" json:"parent_node_id,omitempty"`
+	// 扩展元数据 (如环境标签、版本等)
+	Metadata      map[string]string `protobuf:"bytes,9,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -393,6 +397,20 @@ func (x *NodeIdentity) GetDisplayName() string {
 		return x.DisplayName
 	}
 	return ""
+}
+
+func (x *NodeIdentity) GetParentNodeId() string {
+	if x != nil {
+		return x.ParentNodeId
+	}
+	return ""
+}
+
+func (x *NodeIdentity) GetMetadata() map[string]string {
+	if x != nil {
+		return x.Metadata
+	}
+	return nil
 }
 
 // ServerEndpoint 描述一个客户端连接的服务端
@@ -691,7 +709,7 @@ var File_v1_synch_proto protoreflect.FileDescriptor
 
 const file_v1_synch_proto_rawDesc = "" +
 	"\n" +
-	"\x0ev1/synch.proto\x12\bsynch.v1\"\xff\x01\n" +
+	"\x0ev1/synch.proto\x12\bsynch.v1\"\xa4\x03\n" +
 	"\fNodeIdentity\x12\x17\n" +
 	"\anode_id\x18\x01 \x01(\tR\x06nodeId\x12\x1d\n" +
 	"\n" +
@@ -700,7 +718,12 @@ const file_v1_synch_proto_rawDesc = "" +
 	"\bplatform\x18\x04 \x01(\tR\bplatform\x12\"\n" +
 	"\fcapabilities\x18\x05 \x03(\tR\fcapabilities\x12#\n" +
 	"\rregistered_at\x18\x06 \x01(\x04R\fregisteredAt\x12!\n" +
-	"\fdisplay_name\x18\a \x01(\tR\vdisplayName\"\xf9\x02\n" +
+	"\fdisplay_name\x18\a \x01(\tR\vdisplayName\x12$\n" +
+	"\x0eparent_node_id\x18\b \x01(\tR\fparentNodeId\x12@\n" +
+	"\bmetadata\x18\t \x03(\v2$.synch.v1.NodeIdentity.MetadataEntryR\bmetadata\x1a;\n" +
+	"\rMetadataEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xf9\x02\n" +
 	"\x0eServerEndpoint\x12\x1b\n" +
 	"\tserver_id\x18\x01 \x01(\tR\bserverId\x12\x10\n" +
 	"\x03url\x18\x02 \x01(\tR\x03url\x12(\n" +
@@ -769,7 +792,7 @@ func file_v1_synch_proto_rawDescGZIP() []byte {
 }
 
 var file_v1_synch_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
-var file_v1_synch_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_v1_synch_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_v1_synch_proto_goTypes = []any{
 	(NodeType)(0),           // 0: synch.v1.NodeType
 	(ServerRole)(0),         // 1: synch.v1.ServerRole
@@ -781,24 +804,26 @@ var file_v1_synch_proto_goTypes = []any{
 	(*VaultPermission)(nil), // 7: synch.v1.VaultPermission
 	(*ClientProfile)(nil),   // 8: synch.v1.ClientProfile
 	(*SyncConfig)(nil),      // 9: synch.v1.SyncConfig
-	nil,                     // 10: synch.v1.ServerEndpoint.VaultAccessEntry
+	nil,                     // 10: synch.v1.NodeIdentity.MetadataEntry
+	nil,                     // 11: synch.v1.ServerEndpoint.VaultAccessEntry
 }
 var file_v1_synch_proto_depIdxs = []int32{
 	0,  // 0: synch.v1.NodeIdentity.node_type:type_name -> synch.v1.NodeType
-	1,  // 1: synch.v1.ServerEndpoint.role:type_name -> synch.v1.ServerRole
-	10, // 2: synch.v1.ServerEndpoint.vault_access:type_name -> synch.v1.ServerEndpoint.VaultAccessEntry
-	2,  // 3: synch.v1.VaultPermission.level:type_name -> synch.v1.PermissionLevel
-	5,  // 4: synch.v1.ClientProfile.identity:type_name -> synch.v1.NodeIdentity
-	6,  // 5: synch.v1.ClientProfile.servers:type_name -> synch.v1.ServerEndpoint
-	9,  // 6: synch.v1.ClientProfile.sync_config:type_name -> synch.v1.SyncConfig
-	3,  // 7: synch.v1.SyncConfig.conflict_strategy:type_name -> synch.v1.ConflictStrategy
-	4,  // 8: synch.v1.SyncConfig.mobile_sync_policy:type_name -> synch.v1.MobileSyncPolicy
-	7,  // 9: synch.v1.ServerEndpoint.VaultAccessEntry.value:type_name -> synch.v1.VaultPermission
-	10, // [10:10] is the sub-list for method output_type
-	10, // [10:10] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	10, // 1: synch.v1.NodeIdentity.metadata:type_name -> synch.v1.NodeIdentity.MetadataEntry
+	1,  // 2: synch.v1.ServerEndpoint.role:type_name -> synch.v1.ServerRole
+	11, // 3: synch.v1.ServerEndpoint.vault_access:type_name -> synch.v1.ServerEndpoint.VaultAccessEntry
+	2,  // 4: synch.v1.VaultPermission.level:type_name -> synch.v1.PermissionLevel
+	5,  // 5: synch.v1.ClientProfile.identity:type_name -> synch.v1.NodeIdentity
+	6,  // 6: synch.v1.ClientProfile.servers:type_name -> synch.v1.ServerEndpoint
+	9,  // 7: synch.v1.ClientProfile.sync_config:type_name -> synch.v1.SyncConfig
+	3,  // 8: synch.v1.SyncConfig.conflict_strategy:type_name -> synch.v1.ConflictStrategy
+	4,  // 9: synch.v1.SyncConfig.mobile_sync_policy:type_name -> synch.v1.MobileSyncPolicy
+	7,  // 10: synch.v1.ServerEndpoint.VaultAccessEntry.value:type_name -> synch.v1.VaultPermission
+	11, // [11:11] is the sub-list for method output_type
+	11, // [11:11] is the sub-list for method input_type
+	11, // [11:11] is the sub-list for extension type_name
+	11, // [11:11] is the sub-list for extension extendee
+	0,  // [0:11] is the sub-list for field type_name
 }
 
 func init() { file_v1_synch_proto_init() }
@@ -812,7 +837,7 @@ func file_v1_synch_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_v1_synch_proto_rawDesc), len(file_v1_synch_proto_rawDesc)),
 			NumEnums:      5,
-			NumMessages:   6,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

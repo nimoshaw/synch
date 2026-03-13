@@ -21,7 +21,12 @@ docker-compose up -d
 The `deploy/` directory contains specialized configurations:
 - **Development**: `docker-compose.dev.yml` (builds from local source)
 - **Staging**: `docker-compose.staging.yml` (uses pre-built images)
-- **Production**: `docker-compose.prod.yml` (Swarm compatible, high availability)
+- **Production**: `docker-compose.prod.yml` (Nginx reverse proxy, WSS support, resource limits, health checks)
+
+**Architecture in Production:**
+- **Nginx**: Exposes ports 80/443, handles SSL/TLS termination and WebSocket Upgrades.
+- **Relay Server**: Internal-only exposure (8080), includes `/health` endpoint and monitoring.
+- **Redis**: Persistent state storage with append-only mode.
 
 **Usage Example:**
 ```bash

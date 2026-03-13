@@ -29,16 +29,19 @@ enum SyncState {
 // ============================================================
 
 // SyncMessage 是客户端与服务端之间的同步协议帧
-message SyncMessage {
-  oneof payload {
-    VaultHandshake    handshake = 1;
-    DeltaManifest     delta     = 2;
-    DeltaAck          ack       = 3;
-    ConflictDetected  conflict  = 4;
-    SyncProgress      progress  = 5;
-    PresenceUpdate    presence  = 6;
-  }
-}
+ message SyncMessage {
+   // 逻辑发送方 ID (当通过 Plugin 中继时使用)
+   string sender_id = 7;
+ 
+   oneof payload {
+     VaultHandshake    handshake = 1;
+     DeltaManifest     delta     = 2;
+     DeltaAck          ack       = 3;
+     ConflictDetected  conflict  = 4;
+     SyncProgress      progress  = 5;
+     PresenceUpdate    presence  = 6;
+   }
+ }
 
 // ============================================================
 //  握手 (Vault Handshake)

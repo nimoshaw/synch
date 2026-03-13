@@ -76,6 +76,10 @@ pub struct NodeIdentity {
     pub registered_at: u64,
     /// Human-readable display name
     pub display_name: String,
+    /// Parent node ID (Optional)
+    pub parent_node_id: Option<String>,
+    /// Extension metadata
+    pub metadata: std::collections::HashMap<String, String>,
 }
 
 impl NodeIdentity {
@@ -111,7 +115,21 @@ impl NodeIdentity {
             display_name: display_name.into(),
             capabilities,
             registered_at,
+            parent_node_id: None,
+            metadata: std::collections::HashMap::new(),
         }
+    }
+
+    /// Set parent node ID
+    pub fn with_parent(mut self, parent_id: impl Into<String>) -> Self {
+        self.parent_node_id = Some(parent_id.into());
+        self
+    }
+
+    /// Add metadata
+    pub fn with_metadata(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.metadata.insert(key.into(), value.into());
+        self
     }
 
     /// Get the raw public key bytes

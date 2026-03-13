@@ -6,5 +6,11 @@ export default defineConfig({
     testTimeout: 30000,
     hookTimeout: 30000,
     globals: true,
+    reporters: ['default', 'html'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+      enabled: true,
+    },
   },
 })
