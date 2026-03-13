@@ -31,6 +31,13 @@ var upgrader = websocket.Upgrader{
 }
 
 func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
+	// Rate limit by IP
+	if !hub.limiter.ConnLimiter.Allow(r.RemoteAddr) {
+		http.Error(w, "Too many connections", http.StatusTooManyRequests)
+		slog.Warn("connection rate limit exceeded", "ip", r.RemoteAddr)
+		return
+	}
+
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		slog.Error("upgrade error", "error", err)

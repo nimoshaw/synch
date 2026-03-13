@@ -1,6 +1,6 @@
 module synch-server
 
-go 1.23.0
+go 1.25.0
 
 require (
 	github.com/gorilla/websocket v1.5.1
@@ -29,4 +29,5 @@ require (
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	golang.org/x/net v0.43.0 // indirect
 	golang.org/x/sys v0.35.0 // indirect
+	golang.org/x/time v0.15.0 // indirect
 )
