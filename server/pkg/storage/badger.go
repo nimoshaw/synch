@@ -120,6 +120,67 @@ func perceptionKey(id string) []byte {
 	return []byte("p:" + id)
 }
 
+func (s *BadgerStore) DeleteContract(id string) error {
+	return s.db.Update(func(txn *badger.Txn) error {
+		return txn.Delete(contractKey(id))
+	})
+}
+
+// Presence Keys: pr:{node_id}
+func presenceKey(id string) []byte {
+	return []byte("pr:" + id)
+}
+
+func (s *BadgerStore) SavePresence(presence *pb.PresenceUpdate) error {
+	data, err := proto.Marshal(presence)
+	if err != nil {
+		return err
+	}
+	return s.db.Update(func(txn *badger.Txn) error {
+		return txn.Set(presenceKey(presence.NodeId), data)
+	})
+}
+
+func (s *BadgerStore) LoadPresence(nodeID string) (*pb.PresenceUpdate, error) {
+	var presence *pb.PresenceUpdate
+	err := s.db.View(func(txn *badger.Txn) error {
+		item, err := txn.Get(presenceKey(nodeID))
+		if err != nil {
+			return err
+		}
+		return item.Value(func(v []byte) error {
+			presence = &pb.PresenceUpdate{}
+			return proto.Unmarshal(v, presence)
+		})
+	})
+	return presence, err
+}
+
+func (s *BadgerStore) LoadAllPresences() ([]*pb.PresenceUpdate, error) {
+	var presences []*pb.PresenceUpdate
+	err := s.db.View(func(txn *badger.Txn) error {
+		it := txn.NewIterator(badger.DefaultIteratorOptions)
+		defer it.Close()
+		prefix := []byte("pr:")
+		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+			item := it.Item()
+			err := item.Value(func(v []byte) error {
+				p := &pb.PresenceUpdate{}
+				if err := proto.Unmarshal(v, p); err != nil {
+					return err
+				}
+				presences = append(presences, p)
+				return nil
+			})
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	return presences, err
+}
+
 func (s *BadgerStore) SavePerceptionLevel(nodeID string, level pb.PerceptionLevel) error {
 	return s.db.Update(func(txn *badger.Txn) error {
 		return txn.Set(perceptionKey(nodeID), []byte{byte(level)})
