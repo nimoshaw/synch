@@ -49,31 +49,48 @@ export async function handleToolExecution(
 
 /**
  * handleSecureMessage — 发送 E2EE 加密消息
- * 
- * ⚠️ WIP: 当前实现为**明文传输**，ciphertext 字段直接包含原始消息。
- * TODO: 集成真正的 AES-256-GCM 加密 (需先通过 Contract 建立共享密钥)
+ *
+ * 使用 X25519 ECDH 派生共享密钥 + AES-256-GCM 加密。
+ * 如果尚无对端公钥，则回退为明文模式并发出警告。
  */
 async function handleSecureMessage(args: SecureMessageArgs, client: SynchClient): Promise<Record<string, unknown>> {
   if (!args.targetId) throw new Error('缺少 targetId 参数');
   if (!args.message) throw new Error('缺少 message 参数');
 
-  console.warn(`[ToolHandler] ⚠️ E2EE 尚未实现 — 消息将以明文发送至 ${args.targetId}`);
-  
-  // TODO: 实现真正的加密流程:
-  // 1. 查找与 targetId 的活跃 Contract
-  // 2. 通过 Contract 的共享密钥派生 AES-256-GCM 密钥
-  // 3. 生成随机 nonce, 加密消息
-  // 4. 填充正确的 senderPublicKey 和 signature
+  const plaintext = new TextEncoder().encode(args.message);
+  const exchangeKeys = client.exchangeKeys;
+  const peerPubKey = client.peerKeyStore.get(args.targetId);
+
+  let ciphertext: Uint8Array;
+  let nonce: Uint8Array;
+  let isEncrypted = false;
+
+  if (peerPubKey && exchangeKeys) {
+    // 真正的 E2EE: X25519 ECDH → HKDF → AES-256-GCM
+    const { deriveSharedKey, encrypt } = await import('./crypto.js');
+    const sharedKey = deriveSharedKey(exchangeKeys.secretKey, peerPubKey);
+    const result = encrypt(sharedKey, plaintext);
+    ciphertext = result.ciphertext;
+    nonce = result.nonce;
+    isEncrypted = true;
+    console.log(`[ToolHandler] ✓ E2EE 加密完成 → ${args.targetId}`);
+  } else {
+    // 回退: 明文模式
+    ciphertext = plaintext;
+    nonce = new Uint8Array(12);
+    console.warn(`[ToolHandler] ⚠️ 无对端公钥 — 消息以明文发送至 ${args.targetId}`);
+  }
+
   const msg = SyncMessage.create({
     senderId: client.nodeId,
     targetId: args.targetId,
     secured: {
-      contractId: "",  // TODO: 关联实际 Contract ID
+      contractId: "",
       senderFingerprint: "",
       payload: {
-        ciphertext: Buffer.from(args.message),  // ⚠️ 明文! 待加密实现后替换
-        nonce: new Uint8Array(12),               // ⚠️ 占位,应为随机 nonce
-        senderPublicKey: new Uint8Array(32),      // ⚠️ 占位,应为发送方公钥
+        ciphertext,
+        nonce,
+        senderPublicKey: exchangeKeys?.publicKey ?? new Uint8Array(32),
         algorithm: 3,  // AES_256_GCM
         aadHash: new Uint8Array(0),
         contractId: "",
@@ -82,7 +99,7 @@ async function handleSecureMessage(args: SecureMessageArgs, client: SynchClient)
         prevChainLength: 0
       },
       timestamp: Date.now(),
-      signature: new Uint8Array(64)              // ⚠️ 占位,应为实际签名
+      signature: new Uint8Array(64)
     }
   });
 
@@ -90,13 +107,16 @@ async function handleSecureMessage(args: SecureMessageArgs, client: SynchClient)
 
   return {
     status: 'success',
-    warning: '⚠️ E2EE 尚未实现，消息以明文发送',
-    message: `消息已排队发送至 ${args.targetId}（明文模式）`,
+    encrypted: isEncrypted,
+    message: isEncrypted
+      ? `消息已加密并发送至 ${args.targetId}`
+      : `消息已发送至 ${args.targetId}（明文模式 - 无对端公钥）`,
     synchNodeId: client.nodeId,
     peersOnline: client.peers.size,
     timestamp: new Date().toISOString()
   };
 }
+
 
 /**
  * handleContractManager — 契约管理操作

@@ -25,6 +25,7 @@ data class NodeInfo(
     val nodeType: String = "Unknown",
     val perceptionLevel: String = "L0",
     val displayName: String = "",
+    val capabilities: List<String> = emptyList(),
     val lastSeen: Long = System.currentTimeMillis()
 )
 
@@ -122,114 +123,103 @@ object SynchRepository {
     }
 
     /**
-     * sendHandshake — 发送握手消息到 relay
-     * 
-     * NOTE: 完整的 protobuf 集成需要生成的 Java 类。
-     * 此处使用手动构建的 protobuf 字节作为临时方案。
-     * 待 buf generate 生成 Java/Kotlin protobuf 类后替换。
+     * sendHandshake — 使用 protobuf 生成类发送握手消息
      */
     fun sendHandshake(ws: WebSocket, nodeId: String, displayName: String) {
         activeWebSocket = ws
-        // Build a minimal SyncMessage with sender_id field (field 7, string)
-        // protobuf wire format: field_number << 3 | wire_type
-        // field 7 string: (7 << 3 | 2) = 58 = 0x3A
-        val senderBytes = nodeId.toByteArray(Charsets.UTF_8)
-        val msg = ByteArray(2 + senderBytes.size)
-        msg[0] = 0x3A.toByte() // field 7, wire type 2 (length-delimited)
-        msg[1] = senderBytes.size.toByte()
-        System.arraycopy(senderBytes, 0, msg, 2, senderBytes.size)
-        
-        ws.send(okio.ByteString.of(*msg))
-        addEvent("握手已发送: $nodeId")
+
+        val handshake = synch.v1.Sync.VaultHandshake.newBuilder()
+            .setNodeId(nodeId)
+            .setNodeType(synch.v1.Synch.NodeType.NODE_TYPE_MOBILE)
+            .addAllCapabilities(listOf("e2ee", "presence", "sync"))
+            .build()
+
+        val msg = synch.v1.Sync.SyncMessage.newBuilder()
+            .setSenderId(nodeId)
+            .setHandshake(handshake)
+            .build()
+
+        ws.send(okio.ByteString.of(*msg.toByteArray()))
+        addEvent("握手已发送: $nodeId (capabilities: e2ee, presence, sync)")
     }
 
     /**
-     * handleIncomingMessage — 处理来自 relay 的 protobuf 消息
+     * handleIncomingMessage — 使用 protobuf 生成类解析消息
      */
     fun handleIncomingMessage(data: ByteArray) {
-        // Simple protobuf field parsing for SyncMessage
-        // Parse sender_id (field 7) and payload type
         try {
-            var offset = 0
-            var senderId = ""
-            var payloadType = "unknown"
+            val msg = synch.v1.Sync.SyncMessage.parseFrom(data)
+            val senderId = msg.senderId
 
-            while (offset < data.size) {
-                val tag = data[offset].toInt() and 0xFF
-                val fieldNumber = tag shr 3
-                val wireType = tag and 0x07
-                offset++
-
-                when (wireType) {
-                    0 -> { // Varint
-                        while (offset < data.size && data[offset].toInt() and 0x80 != 0) offset++
-                        offset++
+            when {
+                msg.hasHandshake() -> {
+                    val h = msg.handshake
+                    addEvent("← [Handshake] from ${senderId.take(20)} type=${h.nodeType.name}")
+                    if (h.nodeId.isNotEmpty()) {
+                        updateNode(NodeInfo(
+                            nodeId = h.nodeId,
+                            nodeType = h.nodeType.name,
+                            capabilities = h.capabilitiesList,
+                            lastSeen = System.currentTimeMillis()
+                        ))
                     }
-                    2 -> { // Length-delimited
-                        if (offset >= data.size) break
-                        val length = data[offset].toInt() and 0xFF
-                        offset++
-                        when (fieldNumber) {
-                            7 -> senderId = String(data, offset, minOf(length, data.size - offset), Charsets.UTF_8)
-                            1 -> payloadType = "Handshake"
-                            2 -> payloadType = "Delta"
-                            6 -> {
-                                payloadType = "Presence"
-                                // Try to extract node_id from presence (basic parsing)
-                                if (length > 2 && offset + length <= data.size) {
-                                    val presenceData = data.copyOfRange(offset, offset + length)
-                                    parsePresenceUpdate(presenceData, senderId)
-                                }
-                            }
-                            10 -> payloadType = "Secured"
-                            11 -> payloadType = "Contract"
-                        }
-                        offset += length
-                    }
-                    else -> break // Unknown wire type
                 }
-            }
-
-            if (senderId.isNotEmpty() || payloadType != "unknown") {
-                addEvent("← [$payloadType] from ${senderId.take(20)}")
+                msg.hasPresence() -> {
+                    val p = msg.presence
+                    val pNodeId = p.nodeId.ifEmpty { senderId }
+                    addEvent("← [Presence] ${pNodeId.take(20)} → ${p.status.name}")
+                    if (p.status == synch.v1.Sync.PresenceStatus.PRESENCE_STATUS_OFFLINE) {
+                        removeNode(pNodeId)
+                    } else if (pNodeId.isNotEmpty()) {
+                        updateNode(NodeInfo(
+                            nodeId = pNodeId,
+                            perceptionLevel = p.perceptionLevel.name,
+                            lastSeen = if (p.lastSeen > 0) p.lastSeen else System.currentTimeMillis()
+                        ))
+                    }
+                }
+                msg.hasSecured() -> {
+                    val s = msg.secured
+                    addEvent("← [Secured] from ${senderId.take(20)} contract=${s.contractId.take(12)}")
+                }
+                msg.hasContractSubmission() -> {
+                    addEvent("← [Contract] from ${senderId.take(20)} id=${msg.contractSubmission.contractId.take(12)}")
+                }
+                msg.hasDelta() -> {
+                    addEvent("← [Delta] from ${senderId.take(20)} vault=${msg.delta.vaultId.take(12)}")
+                }
+                else -> {
+                    if (senderId.isNotEmpty()) {
+                        addEvent("← [Unknown] from ${senderId.take(20)}")
+                    }
+                }
             }
         } catch (e: Exception) {
             addEvent("消息解析失败: ${e.message}")
+            Log.e(TAG, "Failed to parse protobuf message", e)
         }
     }
 
-    private fun parsePresenceUpdate(data: ByteArray, fallbackNodeId: String) {
-        // Extract node_id from PresenceUpdate (field 1, string)
-        try {
-            var offset = 0
-            var nodeId = fallbackNodeId
-            while (offset < data.size) {
-                val tag = data[offset].toInt() and 0xFF
-                val fieldNumber = tag shr 3
-                val wireType = tag and 0x07
-                offset++
-                when (wireType) {
-                    0 -> { while (offset < data.size && data[offset].toInt() and 0x80 != 0) offset++; offset++ }
-                    2 -> {
-                        if (offset >= data.size) break
-                        val len = data[offset].toInt() and 0xFF
-                        offset++
-                        if (fieldNumber == 1) {
-                            nodeId = String(data, offset, minOf(len, data.size - offset), Charsets.UTF_8)
-                        }
-                        offset += len
-                    }
-                    else -> break
-                }
-            }
-            if (nodeId.isNotEmpty()) {
-                updateNode(NodeInfo(nodeId = nodeId, lastSeen = System.currentTimeMillis()))
-            }
-        } catch (_: Exception) {}
+    /**
+     * sendPresence — 发送在线状态到 relay
+     */
+    fun sendPresence(nodeId: String, status: synch.v1.Sync.PresenceStatus) {
+        val presence = synch.v1.Sync.PresenceUpdate.newBuilder()
+            .setNodeId(nodeId)
+            .setStatus(status)
+            .setLastSeen(System.currentTimeMillis())
+            .build()
+
+        val msg = synch.v1.Sync.SyncMessage.newBuilder()
+            .setSenderId(nodeId)
+            .setPresence(presence)
+            .build()
+
+        sendRawMessage(msg.toByteArray())
     }
 
     /**
-     * sendMessage — 发送原始二进制消息到 relay
+     * sendRawMessage — 发送原始二进制消息到 relay
      */
     fun sendRawMessage(data: ByteArray): Boolean {
         val ws = activeWebSocket ?: return false

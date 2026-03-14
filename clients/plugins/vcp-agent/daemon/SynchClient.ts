@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { SyncMessage, PresenceUpdate, PresenceStatus, VaultHandshake, NodeType } from './proto/v1/sync.ts';
+import { loadOrCreateExchangeKeys, PeerKeyStore, deriveSharedKey, decrypt, type KeyPair } from './crypto.js';
 
 type ConnectionState = "disconnected" | "connecting" | "connected" | "reconnecting";
 
@@ -38,11 +39,17 @@ export class SynchClient {
   // Track online peers
   public peers: Map<string, PresenceUpdate> = new Map();
 
+  // E2EE key management
+  public exchangeKeys: KeyPair;
+  public peerKeyStore: PeerKeyStore = new PeerKeyStore();
+
   constructor(url: string, nodeType: NodeType = NodeType.NODE_TYPE_AGENT, events: SynchClientEvents = {}) {
     this.url = url;
     this.nodeType = nodeType;
     this.events = events;
     this.nodeId = this.loadOrCreateNodeId();
+    this.exchangeKeys = loadOrCreateExchangeKeys();
+    console.log(`[SynchClient] X25519 public key: ${Buffer.from(this.exchangeKeys.publicKey).toString('hex').substring(0, 16)}...`);
   }
 
   /**
@@ -140,7 +147,14 @@ export class SynchClient {
       handshake: {
         nodeId: this.nodeId,
         nodeType: this.nodeType,
-        capabilities: ['e2ee', 'contract', 'presence', 'sync'],
+        capabilities: [
+          // 协议能力
+          'e2ee', 'contract', 'presence', 'sync',
+          // Agent 服务能力 (供客户端展示可用服务)
+          'service:secure-message',
+          'service:contract-manager',
+          'service:presence-query',
+        ],
       }
     });
     this.send(msg);
@@ -217,7 +231,29 @@ export class SynchClient {
     }
 
     if (msg.secured) {
-      console.log(`[SynchClient] ← Secured message from ${msg.senderId} (contract: ${msg.secured.contractId})`);
+      const secured = msg.secured;
+      const senderId = msg.senderId;
+      console.log(`[SynchClient] ← Secured message from ${senderId} (contract: ${secured.contractId})`);
+
+      // Extract and store sender's public key for future messages
+      if (secured.payload?.senderPublicKey && secured.payload.senderPublicKey.length === 32) {
+        this.peerKeyStore.set(senderId, secured.payload.senderPublicKey);
+      }
+
+      // Attempt decryption
+      if (secured.payload?.ciphertext && secured.payload?.nonce && this.exchangeKeys) {
+        const peerPubKey = this.peerKeyStore.get(senderId);
+        if (peerPubKey) {
+          try {
+            const sharedKey = deriveSharedKey(this.exchangeKeys.secretKey, peerPubKey);
+            const plaintext = decrypt(sharedKey, secured.payload.ciphertext, secured.payload.nonce);
+            const text = new TextDecoder().decode(plaintext);
+            console.log(`[SynchClient] ✓ Decrypted message from ${senderId}: ${text.substring(0, 100)}`);
+          } catch (e) {
+            console.warn(`[SynchClient] ⚠ Decryption failed (may be plaintext):`, (e as Error).message);
+          }
+        }
+      }
     }
 
     // Forward all messages to callback
