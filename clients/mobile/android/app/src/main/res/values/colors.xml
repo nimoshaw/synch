@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="status_online">#4CAF50</color>
+    <color name="status_connecting">#FFC107</color>
+    <color name="status_offline">#757575</color>
+    <color name="primary">#0F3460</color>
+    <color name="primary_dark">#16213E</color>
+    <color name="background">#1A1A2E</color>
+    <color name="accent">#E94560</color>
+    <color name="text_primary">#E0E0E0</color>
+    <color name="text_secondary">#B0BEC5</color>
+</resources>

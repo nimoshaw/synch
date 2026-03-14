@@ -1,80 +1,128 @@
 # Synch Deployment Guide
 
-This document provides detailed instructions for deploying the Synch Relay Server in various environments.
+本文档提供 Synch Relay Server 在各种环境下的详细部署说明。
 
-## 📋 Prerequisites
-- **Redis**: Required for state management and caching.
-- **Docker & Docker Compose**: (Recommended) For containerized deployment.
-- **Go 1.21+**: Only if building from source on Linux.
+## 📋 前置要求
+
+- **Docker & Docker Compose**：（推荐）容器化部署
+- **Go 1.25+**：仅在从源码构建时需要
+
+> **注意**：Synch 使用内嵌的 BadgerDB 作为持久化存储，**不需要外部数据库**（如 Redis/MySQL）。
 
 ---
 
-## 🐋 Docker Installation
+## 🐋 Docker 部署
 
-### Quick Start
-Use the root `docker-compose.yml` for a standard setup:
+### 快速启动（开发/测试）
+
+在项目根目录运行：
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
-### Multi-Environment Layout
-The `deploy/` directory contains specialized configurations:
-- **Development**: `docker-compose.dev.yml` (builds from local source)
-- **Staging**: `docker-compose.staging.yml` (uses pre-built images)
-- **Production**: `docker-compose.prod.yml` (Nginx reverse proxy, WSS support, resource limits, health checks)
-
-**Architecture in Production:**
-- **Nginx**: Exposes ports 80/443, handles SSL/TLS termination and WebSocket Upgrades.
-- **Relay Server**: Internal-only exposure (8080), includes `/health` endpoint and monitoring.
-- **Redis**: Persistent state storage with append-only mode.
-
-**Usage Example:**
+验证运行状态：
 ```bash
+curl http://localhost:8080/health
+```
+
+### 多环境部署
+
+`deploy/` 目录包含针对不同环境的 Docker Compose 配置：
+
+| 文件 | 环境 | 说明 |
+|------|------|------|
+| `docker-compose.dev.yml` | 开发 | 从本地源码构建，Debug 日志 |
+| `docker-compose.staging.yml` | 测试 | 使用预构建镜像 |
+| `docker-compose.prod.yml` | 生产 | Nginx 反代 + SSL + 资源限制 + 健康检查 |
+
+使用示例：
+```bash
+# 开发环境
+docker compose -f deploy/docker-compose.dev.yml up -d --build
+
+# 测试环境
 docker compose -f deploy/docker-compose.staging.yml up -d
+
+# 生产环境 (请先配置 SSL 证书和 nginx.conf)
+docker compose -f deploy/docker-compose.prod.yml up -d
 ```
+
+**生产环境架构：**
+- **Nginx**：暴露 80/443 端口，处理 SSL/TLS 终止和 WebSocket Upgrade
+- **Relay Server**：仅暴露 8080 给 Nginx（不直接对外），含 `/health` 健康检查
+- **BadgerDB**：数据存储在 Docker Volume 中持久化
 
 ---
 
-## 🐧 Linux Installation (Standalone Binary)
+## 🐧 Linux 独立部署
 
-### 1. Build from Source
-If you don't use Docker, you can build the binary manually:
+### 方式一：一键安装脚本（推荐）
+
 ```bash
+curl -sSL https://raw.githubusercontent.com/nimoshaw/synch/main/deploy/scripts/install-server.sh | sudo bash
+```
+
+脚本执行过程：
+1. 检测 CPU 架构 (amd64/arm64)
+2. 创建 `synch` 系统用户和组
+3. 下载最新的编译好的二进制文件
+4. 安装到 `/usr/local/bin/synch-relay`
+5. 创建 systemd 服务（开机自启、崩溃自动重启）
+6. 生成配置文件模板 `/etc/synch/.env`
+
+安装后操作：
+```bash
+# 1. 编辑配置文件
+sudo nano /etc/synch/.env
+
+# 2. 启动服务
+sudo systemctl start synch-relay
+
+# 3. 设为开机自启
+sudo systemctl enable synch-relay
+
+# 4. 查看运行状态
+sudo systemctl status synch-relay
+```
+
+### 方式二：手动编译安装
+
+```bash
+# 编译
 cd server
-go build -o synch-relay ./cmd/relay
-```
+go build -ldflags "-s -w" -o synch-relay ./cmd/relay
 
-### 2. Configuration
-Create a `.env` file or export environment variables:
-```bash
-export SYNCH_MODE=production
-export SYNCH_REDIS_URL=redis://localhost:6379
-export SYNCH_WS_PORT=8081
-```
-
-### 3. Production Deployment (systemd)
-Create a file at `/etc/systemd/system/synch-relay.service`:
-```ini
-[Unit]
-Description=Synch Relay Server
-After=network.target redis.service
-
-[Service]
-Type=simple
-User=synch
-Group=synch
-WorkingDirectory=/opt/synch
-EnvironmentFile=/opt/synch/.env
-ExecStart=/opt/synch/synch-relay
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
+# 运行
+./synch-relay -addr :8080 -mode production -log info -db /var/lib/synch/data
 ```
 
 ---
 
-## 🛠️ Advanced Operations
+## ⚙️ 环境变量参考
+
+通过环境变量或 CLI 参数配置（CLI 参数优先）：
+
+| 环境变量 | CLI 参数 | 说明 | 默认值 |
+|----------|---------|------|--------|
+| `SYNCH_WS_PORT` | `-addr` | 监听地址和端口 | `:8080` |
+| `SYNCH_DB_PATH` | `-db` | BadgerDB 数据目录 | `./relay_db` |
+| `SYNCH_MODE` | `-mode` | 运行模式 (`development` / `production`) | `production` |
+| `SYNCH_LOG_LEVEL` | `-log` | 日志级别 (`debug`/`info`/`warn`/`error`) | `info` |
+| `SYNCH_ADMIN_TOKEN` | — | Admin API 鉴权 Token（空=不鉴权） | 空 |
+| `SYNCH_ALLOWED_ORIGINS` | — | WebSocket 允许的 Origin（逗号分隔，空=全部允许） | 空 |
+
+**配置文件示例** (`/etc/synch/.env`)：
+```env
+SYNCH_MODE=production
+SYNCH_LOG_LEVEL=info
+SYNCH_WS_PORT=:8080
+SYNCH_DB_PATH=/var/lib/synch/data
+SYNCH_ADMIN_TOKEN=your-secret-token-here
+```
+
+---
+
+## 🛠️ 高级部署
 
 ### Helm (Kubernetes)
 ```bash
@@ -82,62 +130,34 @@ helm install synch-relay deploy/helm/synch -f deploy/helm/synch/values.yaml
 ```
 
 ### Terraform (AWS)
-Provision infrastructure using:
 ```bash
 cd deploy/terraform
 terraform init
 terraform apply
 ```
 
-## 🌏 Platform Support Matrix
+---
 
-| Platform | Component | Status | Install Method |
-| :--- | :--- | :--- | :--- |
-| **Android** | Client SDK / App | ✅ Stable | APK, AAR |
-| **Linux** | Relay Server | ✅ Stable | Binary, `install-server.sh`, Docker |
-| **Docker** | Full Stack | ✅ Stable | Docker Compose |
-| **Windows** | Server | 🛠️ In Progress | Binary (.exe) |
-| **Windows** | Desktop Client | 📅 Planned | MSI Installer (Wix) |
-| **iOS** | Client SDK | 📅 Planned | XCFramework |
-| **macOS** | Desktop Client | 📅 Planned | .dmg / Homebrew |
+## 🌏 平台支持矩阵
+
+| 平台 | 组件 | 状态 | 安装方式 |
+|------|------|------|----------|
+| **Linux** | Relay Server | ✅ 稳定 | Binary, 安装脚本, Docker |
+| **Docker** | 全栈 | ✅ 稳定 | Docker Compose |
+| **Android** | 移动端 App | ✅ 稳定 | APK |
+| **Windows** | Relay Server | ✅ 可用 | Binary (.exe) |
+| **iOS** | 移动端 App | 📅 计划中 | — |
+| **macOS** | Desktop Client | 📅 计划中 | — |
 
 ---
 
-## 🚀 Installation Methods
+## 🔧 运维与排查
 
-### 1. Linux One-Liner (Recommended)
-The fastest way to deploy a production-ready server on Linux:
-```bash
-curl -sSL https://raw.githubusercontent.com/nimoshaw/synch/main/deploy/scripts/install-server.sh | sudo bash
-```
-This script performs the following:
-- Detects architecture (amd64/arm64).
-- Creates a dedicated `synch` system user.
-- Downloads the latest statically-linked binary.
-- Sets up a `systemd` service with automatic restart.
-- Creates `/etc/synch/.env` template for configuration.
-
-### 2. Docker Compose
-Ideal for quick evaluations or multi-component setups:
-```bash
-docker compose up -d
-```
-Config files are located in `deploy/docker/`.
-
-### 3. Android APK
-Direct downloads are available for testing on real devices. The APK includes both `arm64-v8a` and `armeabi-v7a` support for maximum compatibility.
-
----
-
-## 🔐 Environment Variables Reference
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `SYNCH_MODE` | Operating mode (`development`, `production`) | `production` |
-| `SYNCH_WS_PORT` | Port for WebSocket connections | `8081` |
-| `SYNCH_REDIS_URL` | Redis connection string | `redis://localhost:6379` |
-| `SYNCH_LOG_LEVEL` | Logging verbosity | `info` |
-
-## 🛠️ Maintenance & Troubleshooting
-- **Logs**: `journalctl -u synch-relay -f`
-- **Health Check**: `curl http://localhost:8080/health`
-- **Config**: `/etc/synch/.env`
+| 操作 | 命令 |
+|------|------|
+| 查看日志 | `journalctl -u synch-relay -f` |
+| 健康检查 | `curl http://localhost:8080/health` |
+| 查看指标 | `curl http://localhost:8080/metrics` |
+| 编辑配置 | `sudo nano /etc/synch/.env` |
+| 查看在线节点 | `curl -H "Authorization: Bearer TOKEN" http://localhost:8080/api/admin/nodes` |
+| 重启服务 | `sudo systemctl restart synch-relay` |

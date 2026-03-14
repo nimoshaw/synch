@@ -8,18 +8,17 @@
 
 #[allow(unused_imports)]
 use synch_crypto::{
+    encrypt::{decrypt_aes_gcm, encrypt_aes_gcm, EncryptedPayload},
+    hash::{blake3_fingerprint, blake3_hash},
     identity::{NodeIdentity, NodeKey, NodeType},
     keys::{Ed25519KeyPair, X25519KeyPair},
-    encrypt::{encrypt_aes_gcm, decrypt_aes_gcm, EncryptedPayload},
-    hash::{blake3_hash, blake3_fingerprint},
 };
 #[allow(unused_imports)]
 use synch_sync::{
-    vault::{Vault, VaultEntry},
     delta::{DeltaBatch, DeltaEntry, EntryOperation},
+    vault::{Vault, VaultEntry},
     version_vector::VersionVector,
 };
-use hex;
 
 // ─── FFI-safe result type ───────────────────────────────────────────────────
 
@@ -71,8 +70,11 @@ pub extern "C" fn synch_generate_x25519_keypair() -> *mut std::os::raw::c_char {
 
 /// Generate a full NodeIdentity JSON given a node type string (e.g., "agent", "mobile").
 /// Returns JSON matching proto NodeIdentity structure.
+///
+/// # Safety
+/// Caller must ensure that the input strings are valid null-terminated C strings.
 #[no_mangle]
-pub extern "C" fn synch_generate_node_identity(
+pub unsafe extern "C" fn synch_generate_node_identity(
     node_type_str: *const std::os::raw::c_char,
     platform_str: *const std::os::raw::c_char,
     display_name_str: *const std::os::raw::c_char,
@@ -109,8 +111,11 @@ pub extern "C" fn synch_generate_node_identity(
 
 /// Sign data with an Ed25519 secret key (hex-encoded seed).
 /// Returns JSON: { "signature": "hex" }
+///
+/// # Safety
+/// Caller must ensure that the input strings are valid null-terminated C strings.
 #[no_mangle]
-pub extern "C" fn synch_ed25519_sign(
+pub unsafe extern "C" fn synch_ed25519_sign(
     secret_key_hex: *const std::os::raw::c_char,
     message_hex: *const std::os::raw::c_char,
 ) -> *mut std::os::raw::c_char {
@@ -131,8 +136,11 @@ pub extern "C" fn synch_ed25519_sign(
 }
 
 /// Free a string previously returned by Synch FFI functions.
+///
+/// # Safety
+/// The pointer must have been returned by a Synch FFI function and not yet freed.
 #[no_mangle]
-pub extern "C" fn synch_free_string(ptr: *mut std::os::raw::c_char) {
+pub unsafe extern "C" fn synch_free_string(ptr: *mut std::os::raw::c_char) {
     if !ptr.is_null() {
         unsafe {
             let _ = std::ffi::CString::from_raw(ptr);
@@ -141,8 +149,11 @@ pub extern "C" fn synch_free_string(ptr: *mut std::os::raw::c_char) {
 }
 
 /// Compute Blake3 hash of data (hex-encoded input → hex-encoded output)
+///
+/// # Safety
+/// Caller must ensure that the input string is a valid null-terminated C string.
 #[no_mangle]
-pub extern "C" fn synch_blake3_hash(
+pub unsafe extern "C" fn synch_blake3_hash(
     data_hex: *const std::os::raw::c_char,
 ) -> *mut std::os::raw::c_char {
     let result = (|| -> Result<String, String> {
@@ -231,7 +242,7 @@ impl SynchVault {
         let mut vault = self.inner.lock().unwrap();
         let node_id = "mobile-test-node".to_string();
         let seq = vault.version + 1;
-        
+
         // Construct a simple delta batch
         let delta = DeltaBatch {
             vault_id: vault.vault_id.clone(),
@@ -274,12 +285,20 @@ pub struct HandshakeController {
     pub inner: std::sync::Arc<std::sync::Mutex<synch_sync::contract_manager::ContractManager>>,
 }
 
+impl Default for HandshakeController {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[uniffi::export]
 impl HandshakeController {
     #[uniffi::constructor]
     pub fn new() -> Self {
         Self {
-            inner: std::sync::Arc::new(std::sync::Mutex::new(synch_sync::contract_manager::ContractManager::new())),
+            inner: std::sync::Arc::new(std::sync::Mutex::new(
+                synch_sync::contract_manager::ContractManager::new(),
+            )),
         }
     }
 
@@ -290,15 +309,22 @@ impl HandshakeController {
         capabilities: Vec<String>,
         duration_days: u64,
     ) -> Result<String, SynchError> {
-        let sk_bytes = hex::decode(&secret_key_hex).map_err(|e: hex::FromHexError| SynchError::CryptoError(e.to_string()))?;
-        let target_pk = hex::decode(&target_pk_hex).map_err(|e: hex::FromHexError| SynchError::CryptoError(e.to_string()))?;
-        let my_keys = Ed25519KeyPair::from_bytes(&sk_bytes).map_err(|e: synch_crypto::error::CryptoError| SynchError::CryptoError(e.to_string()))?;
-        
+        let sk_bytes = hex::decode(&secret_key_hex)
+            .map_err(|e: hex::FromHexError| SynchError::CryptoError(e.to_string()))?;
+        let target_pk = hex::decode(&target_pk_hex)
+            .map_err(|e: hex::FromHexError| SynchError::CryptoError(e.to_string()))?;
+        let my_keys = Ed25519KeyPair::from_bytes(&sk_bytes).map_err(
+            |e: synch_crypto::error::CryptoError| SynchError::CryptoError(e.to_string()),
+        )?;
+
         let mut manager = self.inner.lock().unwrap();
-        let contract = manager.initiate_handshake(&my_keys, &target_pk, capabilities, duration_days)
+        let contract = manager
+            .initiate_handshake(&my_keys, &target_pk, capabilities, duration_days)
             .map_err(|e: synch_sync::error::SyncError| SynchError::CryptoError(e.to_string()))?;
-            
-        contract.to_json().map_err(|e: synch_crypto::error::CryptoError| SynchError::CryptoError(e.to_string()))
+
+        contract
+            .to_json()
+            .map_err(|e: synch_crypto::error::CryptoError| SynchError::CryptoError(e.to_string()))
     }
 
     pub fn respond_to_handshake(
@@ -309,12 +335,17 @@ impl HandshakeController {
         my_exchange_sk_hex: Option<String>,
         remote_exchange_pk_hex: Option<String>,
     ) -> Result<String, SynchError> {
-        let sk_bytes = hex::decode(&secret_key_hex).map_err(|e: hex::FromHexError| SynchError::CryptoError(e.to_string()))?;
-        let my_keys = Ed25519KeyPair::from_bytes(&sk_bytes).map_err(|e: synch_crypto::error::CryptoError| SynchError::CryptoError(e.to_string()))?;
-        
+        let sk_bytes = hex::decode(&secret_key_hex)
+            .map_err(|e: hex::FromHexError| SynchError::CryptoError(e.to_string()))?;
+        let my_keys = Ed25519KeyPair::from_bytes(&sk_bytes).map_err(
+            |e: synch_crypto::error::CryptoError| SynchError::CryptoError(e.to_string()),
+        )?;
+
         let my_exchange = if let Some(sk) = my_exchange_sk_hex {
             let bytes = hex::decode(&sk).map_err(|e| SynchError::CryptoError(e.to_string()))?;
-            Some(X25519KeyPair::from_bytes(&bytes).map_err(|e: synch_crypto::error::CryptoError| SynchError::CryptoError(e.to_string()))?)
+            Some(X25519KeyPair::from_bytes(&bytes).map_err(
+                |e: synch_crypto::error::CryptoError| SynchError::CryptoError(e.to_string()),
+            )?)
         } else {
             None
         };
@@ -322,7 +353,9 @@ impl HandshakeController {
         let remote_exchange = if let Some(pk) = remote_exchange_pk_hex {
             let bytes = hex::decode(&pk).map_err(|e| SynchError::CryptoError(e.to_string()))?;
             if bytes.len() != 32 {
-                return Err(SynchError::CryptoError("Invalid remote exchange key length".into()));
+                return Err(SynchError::CryptoError(
+                    "Invalid remote exchange key length".into(),
+                ));
             }
             let mut arr = [0u8; 32];
             arr.copy_from_slice(&bytes);
@@ -332,10 +365,19 @@ impl HandshakeController {
         };
 
         let mut manager = self.inner.lock().unwrap();
-        let contract = manager.respond_to_handshake(&my_keys, &req_json, Some(accept), my_exchange, remote_exchange)
+        let contract = manager
+            .respond_to_handshake(
+                &my_keys,
+                &req_json,
+                Some(accept),
+                my_exchange,
+                remote_exchange,
+            )
             .map_err(|e: synch_sync::error::SyncError| SynchError::CryptoError(e.to_string()))?;
-            
-        contract.to_json().map_err(|e: synch_crypto::error::CryptoError| SynchError::CryptoError(e.to_string()))
+
+        contract
+            .to_json()
+            .map_err(|e: synch_crypto::error::CryptoError| SynchError::CryptoError(e.to_string()))
     }
 
     pub fn finalize_handshake(
@@ -346,7 +388,10 @@ impl HandshakeController {
     ) -> Result<String, SynchError> {
         let my_exchange = if let Some(sk) = my_exchange_sk_hex {
             let bytes = hex::decode(&sk).map_err(|e| SynchError::CryptoError(e.to_string()))?;
-            Some(X25519KeyPair::from_bytes(&bytes).map_err(|e| SynchError::CryptoError(e.to_string()))?)
+            Some(
+                X25519KeyPair::from_bytes(&bytes)
+                    .map_err(|e| SynchError::CryptoError(e.to_string()))?,
+            )
         } else {
             None
         };
@@ -354,7 +399,9 @@ impl HandshakeController {
         let remote_exchange = if let Some(pk) = remote_exchange_pk_hex {
             let bytes = hex::decode(&pk).map_err(|e| SynchError::CryptoError(e.to_string()))?;
             if bytes.len() != 32 {
-                return Err(SynchError::CryptoError("Invalid remote exchange key length".into()));
+                return Err(SynchError::CryptoError(
+                    "Invalid remote exchange key length".into(),
+                ));
             }
             let mut arr = [0u8; 32];
             arr.copy_from_slice(&bytes);
@@ -364,26 +411,36 @@ impl HandshakeController {
         };
 
         let mut manager = self.inner.lock().unwrap();
-        let contract = manager.finalize_handshake(&ack_json, my_exchange, remote_exchange)
+        let contract = manager
+            .finalize_handshake(&ack_json, my_exchange, remote_exchange)
             .map_err(|e: synch_sync::error::SyncError| SynchError::CryptoError(e.to_string()))?;
-            
-        contract.to_json().map_err(|e: synch_crypto::error::CryptoError| SynchError::CryptoError(e.to_string()))
+
+        contract
+            .to_json()
+            .map_err(|e: synch_crypto::error::CryptoError| SynchError::CryptoError(e.to_string()))
     }
 
     pub fn get_pending_handshakes(&self) -> Vec<HandshakeStateRecord> {
         let manager = self.inner.lock().unwrap();
-        manager.handshake_manager.list_pending().into_iter().map(|s| {
-            HandshakeStateRecord {
+        manager
+            .handshake_manager
+            .list_pending()
+            .into_iter()
+            .map(|s| HandshakeStateRecord {
                 contract_id: s.contract.contract_id.clone(),
                 status: format!("{:?}", s.status),
                 requester_id: hex::encode(&s.contract.requester_id),
                 target_id: hex::encode(&s.contract.target_id),
                 capabilities: s.contract.capabilities.clone(),
-            }
-        }).collect()
+            })
+            .collect()
     }
 
-    pub fn set_policy(&self, trusted_nodes_hex: Vec<String>, auto_accept_caps: Vec<String>) -> Result<(), SynchError> {
+    pub fn set_policy(
+        &self,
+        trusted_nodes_hex: Vec<String>,
+        auto_accept_caps: Vec<String>,
+    ) -> Result<(), SynchError> {
         let mut manager = self.inner.lock().unwrap();
         let mut trusted = Vec::new();
         for hex_pk in trusted_nodes_hex {
@@ -403,13 +460,16 @@ impl HandshakeController {
 
     pub fn import_state(&self, json: String) -> Result<(), SynchError> {
         let mut manager = self.inner.lock().unwrap();
-        *manager = serde_json::from_str(&json).map_err(|e| SynchError::CryptoError(e.to_string()))?;
+        *manager =
+            serde_json::from_str(&json).map_err(|e| SynchError::CryptoError(e.to_string()))?;
         Ok(())
     }
 
     pub fn save_to_file(&self, path: String) -> Result<(), SynchError> {
         let manager = self.inner.lock().unwrap();
-        manager.save_to_file(path).map_err(|e| SynchError::CryptoError(e.to_string()))
+        manager
+            .save_to_file(path)
+            .map_err(|e| SynchError::CryptoError(e.to_string()))
     }
 
     pub fn load_from_file(&self, path: String) -> Result<(), SynchError> {
@@ -427,16 +487,25 @@ impl HandshakeController {
         target_version: u64,
     ) -> Result<String, SynchError> {
         let mut manager = self.inner.lock().unwrap();
-        let ratchet = manager.active_ratchets.get_mut(&contract_id)
-            .ok_or_else(|| SynchError::CryptoError(format!("No active ratchet for contract {}", contract_id)))?;
-        
+        let ratchet = manager
+            .active_ratchets
+            .get_mut(&contract_id)
+            .ok_or_else(|| {
+                SynchError::CryptoError(format!("No active ratchet for contract {}", contract_id))
+            })?;
+
         let vault_inner = vault.inner.lock().unwrap();
-        let changes = vault_inner.deltas_since(base_version).into_iter().cloned().collect();
-        let batch = DeltaBatch::new(vault_inner.vault_id.clone(), base_version, target_version).with_changes(changes);
-        
+        let changes = vault_inner
+            .deltas_since(base_version)
+            .into_iter()
+            .cloned()
+            .collect();
+        let batch = DeltaBatch::new(vault_inner.vault_id.clone(), base_version, target_version)
+            .with_changes(changes);
+
         let secured = synch_sync::secure::seal_batch(ratchet, contract_id, &batch)
             .map_err(|e| SynchError::CryptoError(e.to_string()))?;
-            
+
         serde_json::to_string(&secured).map_err(|e| SynchError::CryptoError(e.to_string()))
     }
 
@@ -447,19 +516,27 @@ impl HandshakeController {
     ) -> Result<u64, SynchError> {
         let secured: synch_sync::secure::SecuredBatch = serde_json::from_str(&secured_json)
             .map_err(|e| SynchError::CryptoError(e.to_string()))?;
-            
+
         let mut manager = self.inner.lock().unwrap();
-        let ratchet = manager.active_ratchets.get_mut(&secured.contract_id)
-            .ok_or_else(|| SynchError::CryptoError(format!("No active ratchet for contract {}", secured.contract_id)))?;
-            
+        let ratchet = manager
+            .active_ratchets
+            .get_mut(&secured.contract_id)
+            .ok_or_else(|| {
+                SynchError::CryptoError(format!(
+                    "No active ratchet for contract {}",
+                    secured.contract_id
+                ))
+            })?;
+
         let vault_id = vault.inner.lock().unwrap().vault_id.clone();
         let batch = synch_sync::secure::open_batch(ratchet, &secured, &vault_id)
             .map_err(|e| SynchError::CryptoError(e.to_string()))?;
-            
+
         let mut vault_inner = vault.inner.lock().unwrap();
-        let count = vault_inner.apply_batch(batch)
+        let count = vault_inner
+            .apply_batch(batch)
             .map_err(|e| SynchError::CryptoError(e.to_string()))?;
-            
+
         Ok(count as u64)
     }
 }
@@ -487,7 +564,7 @@ impl RelayController {
             .enable_all()
             .build()
             .map_err(|e| SynchError::CryptoError(e.to_string()))?;
-            
+
         Ok(Self {
             inner: std::sync::Arc::new(synch_sync::net::RelayManager::new()),
             rt: std::sync::Arc::new(rt),
@@ -545,7 +622,7 @@ mod tests {
         let nt = std::ffi::CString::new("agent").unwrap();
         let pl = std::ffi::CString::new("test-platform").unwrap();
         let dn = std::ffi::CString::new("Test Node").unwrap();
-        let ptr = synch_generate_node_identity(nt.as_ptr(), pl.as_ptr(), dn.as_ptr());
+        let ptr = unsafe { synch_generate_node_identity(nt.as_ptr(), pl.as_ptr(), dn.as_ptr()) };
         assert!(!ptr.is_null());
         let json = unsafe { std::ffi::CStr::from_ptr(ptr).to_str().unwrap().to_owned() };
         synch_free_string(ptr);

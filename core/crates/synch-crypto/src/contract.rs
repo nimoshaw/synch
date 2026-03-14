@@ -46,7 +46,7 @@ impl Contract {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_secs();
-        
+
         let mut data = Vec::new();
         data.extend_from_slice(requester_pk);
         data.extend_from_slice(target_pk);
@@ -126,12 +126,12 @@ impl Contract {
         other_exchange_pk: &[u8],
     ) -> Result<[u8; 32], CryptoError> {
         let shared = my_exchange_key.diffie_hellman(other_exchange_pk)?;
-        
+
         // KDF: Blake3 keyed hash
         let mut hasher = blake3::Hasher::new_keyed(shared.as_bytes());
         hasher.update(b"SYNCH_CONTRACT_V1");
         hasher.update(self.contract_id.as_bytes());
-        
+
         let mut key = [0u8; 32];
         key.copy_from_slice(hasher.finalize().as_bytes());
         Ok(key)
@@ -150,6 +150,12 @@ pub struct ContractStore {
     contracts: HashMap<String, Contract>,
 }
 
+impl Default for ContractStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ContractStore {
     pub fn new() -> Self {
         Self {
@@ -158,7 +164,8 @@ impl ContractStore {
     }
 
     pub fn add(&mut self, contract: Contract) {
-        self.contracts.insert(contract.contract_id.clone(), contract);
+        self.contracts
+            .insert(contract.contract_id.clone(), contract);
     }
 
     pub fn get(&self, id: &str) -> Option<&Contract> {
@@ -186,11 +193,11 @@ mod tests {
         let bob_pk = bob_kp.public_key_bytes();
 
         let mut contract = Contract::new(&alice_pk, &bob_pk, vec!["chat".to_string()], 0);
-        
+
         // Sign
         contract.sign_requester(&alice_kp).unwrap();
         contract.sign_target(&bob_kp).unwrap();
-        
+
         // Verify
         assert!(contract.verify());
         assert_eq!(contract.status, ContractStatus::Active);
@@ -204,10 +211,14 @@ mod tests {
         let bob_pk = [1u8; 32]; // dummy
 
         let contract = Contract::new(&alice_pk, &bob_pk, vec![], 0);
-        
-        let key_alice = contract.derive_contract_key(&alice_exchange, &bob_exchange.public_key_bytes()).unwrap();
-        let key_bob = contract.derive_contract_key(&bob_exchange, &alice_exchange.public_key_bytes()).unwrap();
-        
+
+        let key_alice = contract
+            .derive_contract_key(&alice_exchange, &bob_exchange.public_key_bytes())
+            .unwrap();
+        let key_bob = contract
+            .derive_contract_key(&bob_exchange, &alice_exchange.public_key_bytes())
+            .unwrap();
+
         assert_eq!(key_alice, key_bob);
     }
 }

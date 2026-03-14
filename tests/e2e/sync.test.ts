@@ -3,7 +3,7 @@ import WebSocket from 'ws';
 import { SyncMessage, VaultHandshake, DeltaManifest, EntryOperation } from '../../shared/ts-core/src/proto/v1/sync';
 
 describe('Vault Sync E2E', () => {
-  const SERVER_URL = 'ws://localhost:8081/ws';
+  const SERVER_URL = process.env.SYNCH_WS_URL || 'ws://localhost:8080/ws';
   let wsA: WebSocket;
   let wsB: WebSocket;
 

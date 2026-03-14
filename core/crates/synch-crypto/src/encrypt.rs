@@ -3,7 +3,6 @@ use aes_gcm::{
     aead::{Aead, AeadCore, KeyInit, OsRng},
     Aes256Gcm, Nonce,
 };
-use rand::RngCore;
 use serde::{Deserialize, Serialize};
 
 /// AES-256-GCM encrypted payload
@@ -31,12 +30,24 @@ pub struct SealedBox {
     pub ad: Vec<u8>,
 }
 
+impl Default for SealedBox {
+    fn default() -> Self {
+        Self {
+            payload: EncryptedPayload {
+                ciphertext: Vec::new(),
+                nonce: Vec::new(),
+                sender_public_key: None,
+                ratchet_key: None,
+                ratchet_seq: 0,
+                prev_chain_length: 0,
+            },
+            ad: Vec::new(),
+        }
+    }
+}
+
 impl SealedBox {
-    pub fn seal(
-        key: &[u8; 32],
-        plaintext: &[u8],
-        ad: &[u8],
-    ) -> Result<Self, CryptoError> {
+    pub fn seal(key: &[u8; 32], plaintext: &[u8], ad: &[u8]) -> Result<Self, CryptoError> {
         let payload = encrypt_aes_gcm(key, plaintext, Some(ad))?;
         Ok(Self {
             payload,
@@ -44,10 +55,7 @@ impl SealedBox {
         })
     }
 
-    pub fn open(
-        &self,
-        key: &[u8; 32],
-    ) -> Result<Vec<u8>, CryptoError> {
+    pub fn open(&self, key: &[u8; 32]) -> Result<Vec<u8>, CryptoError> {
         decrypt_aes_gcm(key, &self.payload, Some(&self.ad))
     }
 }
@@ -66,15 +74,21 @@ pub fn encrypt_aes_gcm(
         });
     }
 
-    let cipher = Aes256Gcm::new_from_slice(key)
-        .map_err(|e| CryptoError::Encryption(e.to_string()))?;
+    let cipher =
+        Aes256Gcm::new_from_slice(key).map_err(|e| CryptoError::Encryption(e.to_string()))?;
 
     let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
 
     let ciphertext = if let Some(aad_bytes) = aad {
         use aes_gcm::aead::Payload;
         cipher
-            .encrypt(&nonce, Payload { msg: plaintext, aad: aad_bytes })
+            .encrypt(
+                &nonce,
+                Payload {
+                    msg: plaintext,
+                    aad: aad_bytes,
+                },
+            )
             .map_err(|e| CryptoError::Encryption(e.to_string()))?
     } else {
         cipher
@@ -112,9 +126,15 @@ pub fn decrypt_ratchet(
     payload: &EncryptedPayload,
     aad: Option<&[u8]>,
 ) -> Result<Vec<u8>, CryptoError> {
-    let ratchet_key = payload.ratchet_key.as_ref().ok_or(CryptoError::Encryption("Missing ratchet key".into()))?;
+    let ratchet_key = payload
+        .ratchet_key
+        .as_ref()
+        .ok_or(CryptoError::Encryption("Missing ratchet key".into()))?;
     if ratchet_key.len() != 32 {
-        return Err(CryptoError::InvalidKeyLength { expected: 32, got: ratchet_key.len() });
+        return Err(CryptoError::InvalidKeyLength {
+            expected: 32,
+            got: ratchet_key.len(),
+        });
     }
     let mut rk = [0u8; 32];
     rk.copy_from_slice(ratchet_key);
@@ -142,15 +162,21 @@ pub fn decrypt_aes_gcm(
         });
     }
 
-    let cipher = Aes256Gcm::new_from_slice(key)
-        .map_err(|e| CryptoError::Decryption(e.to_string()))?;
+    let cipher =
+        Aes256Gcm::new_from_slice(key).map_err(|e| CryptoError::Decryption(e.to_string()))?;
 
     let nonce = Nonce::from_slice(&payload.nonce);
 
     let plaintext = if let Some(aad_bytes) = aad {
         use aes_gcm::aead::Payload;
         cipher
-            .decrypt(nonce, Payload { msg: &payload.ciphertext, aad: aad_bytes })
+            .decrypt(
+                nonce,
+                Payload {
+                    msg: &payload.ciphertext,
+                    aad: aad_bytes,
+                },
+            )
             .map_err(|_| CryptoError::Decryption("Authentication tag mismatch".into()))?
     } else {
         cipher

@@ -46,7 +46,11 @@ pub struct DoubleRatchet {
 }
 
 impl DoubleRatchet {
-    pub fn new(shared_secret: [u8; 32], local_dh: X25519KeyPair, remote_dh_pub: Option<[u8; 32]>) -> Self {
+    pub fn new(
+        shared_secret: [u8; 32],
+        local_dh: X25519KeyPair,
+        remote_dh_pub: Option<[u8; 32]>,
+    ) -> Self {
         let mut dr = Self {
             root_key: shared_secret,
             send_chain: None,
@@ -70,7 +74,7 @@ impl DoubleRatchet {
         dr
     }
 
-    /// KDF for Root Key 
+    /// KDF for Root Key
     fn kdf_rk(&self, dh_out: &[u8; 32]) -> ([u8; 32], [u8; 32]) {
         let mut rk_hasher = blake3::Hasher::new_keyed(&self.root_key);
         rk_hasher.update(b"dr-next-rk");
@@ -94,19 +98,29 @@ impl DoubleRatchet {
             // This usually means we are responder and haven't received anything yet,
             // but we want to send. In DR, you must have a remote pub to send.
             if let Some(remote_pub) = self.remote_dh_pub {
-                 let shared = self.local_dh.diffie_hellman(&remote_pub).unwrap();
-                 let (rk, ck) = self.kdf_rk(shared.as_bytes());
-                 self.root_key = rk;
-                 self.send_chain = Some(ChainState::new(ck));
+                let shared = self.local_dh.diffie_hellman(&remote_pub).unwrap();
+                let (rk, ck) = self.kdf_rk(shared.as_bytes());
+                self.root_key = rk;
+                self.send_chain = Some(ChainState::new(ck));
             }
         }
         let chain = self.send_chain.as_mut().expect("No sender chain");
         let mk = chain.step();
-        (mk, self.local_dh.public_key_bytes(), chain.sequence - 1, self.prev_send_length)
+        (
+            mk,
+            self.local_dh.public_key_bytes(),
+            chain.sequence - 1,
+            self.prev_send_length,
+        )
     }
 
     /// Process receiving parameters
-    pub fn receive(&mut self, remote_pub: [u8; 32], seq: u32, prev_len: u32) -> Result<[u8; 32], CryptoError> {
+    pub fn receive(
+        &mut self,
+        remote_pub: [u8; 32],
+        seq: u32,
+        prev_len: u32,
+    ) -> Result<[u8; 32], CryptoError> {
         // 1. Check if we already have the key (skipped)
         if let Some(mk) = self.skipped_keys.remove(&(remote_pub, seq)) {
             return Ok(mk);
@@ -149,7 +163,14 @@ impl DoubleRatchet {
         if let Some(chain) = self.recv_chain.as_mut() {
             while chain.sequence < until {
                 let mk = chain.step();
-                self.skipped_keys.insert((self.remote_dh_pub.ok_or(CryptoError::Encryption("No remote DH key".into()))?, chain.sequence - 1), mk);
+                self.skipped_keys.insert(
+                    (
+                        self.remote_dh_pub
+                            .ok_or(CryptoError::Encryption("No remote DH key".into()))?,
+                        chain.sequence - 1,
+                    ),
+                    mk,
+                );
                 if self.skipped_keys.len() > 1000 {
                     return Err(CryptoError::Encryption("Too many skipped keys".to_string()));
                 }
@@ -172,20 +193,20 @@ mod tests {
 
         // Alice knows Bob's pub from contract
         let mut alice = DoubleRatchet::new(shared, alice_dh, Some(bob_pub));
-        
+
         // Bob doesn't know Alice's ratchet pub yet (waiting for first message)
         let mut bob = DoubleRatchet::new(shared, bob_dh, None);
 
         // 1. Alice sends to Bob
         let (mk_send, alice_pub, seq, prev) = alice.send();
-        
+
         // 2. Bob receives Alice's first message
         let mk_recv = bob.receive(alice_pub, seq, prev).unwrap();
         assert_eq!(mk_send, mk_recv);
 
         // 3. Bob sends back to Alice
         let (mk_send_bob, bob_pub_new, seq_bob, prev_bob) = bob.send();
-        
+
         // 4. Alice receives Bob's response
         let mk_recv_alice = alice.receive(bob_pub_new, seq_bob, prev_bob).unwrap();
         assert_eq!(mk_send_bob, mk_recv_alice);
@@ -228,28 +249,28 @@ mod tests {
         let mut bob = DoubleRatchet::new(shared, bob_dh, None);
 
         // 1. Initial exchange
-        let (mk_a1, pub_a1, seq_a1, prev_a1) = alice.send();
+        let (_mk_a1, pub_a1, seq_a1, prev_a1) = alice.send();
         bob.receive(pub_a1, seq_a1, prev_a1).unwrap();
 
         // 2. Simulate Bob's chain key compromise
         // (In a real scenario, an attacker gets Bob's current CKr)
-        
+
         // 3. Alice sends another message (compromised chain continues)
-        let (mk_a2, pub_a2, seq_a2, prev_a2) = alice.send();
-        
+        let (_mk_a2, _pub_a2, _seq_a2, _prev_a2) = alice.send();
+
         // 4. Bob sends a message (DH Ratchet triggers!)
-        let (mk_b1, pub_b1, seq_b1, prev_b1) = bob.send();
-        
+        let (_mk_b1, pub_b1, seq_b1, prev_b1) = bob.send();
+
         // 5. Alice receives Bob's message and performs DH update
         alice.receive(pub_b1, seq_b1, prev_b1).unwrap();
-        
+
         // 6. Alice sends a NEW message after DH update
         let (mk_a3, pub_a3, seq_a3, prev_a3) = alice.send();
-        
+
         // 7. Bob receives it
         let mk_recv_a3 = bob.receive(pub_a3, seq_a3, prev_a3).unwrap();
         assert_eq!(mk_a3, mk_recv_a3);
-        
+
         // If an attacker only had the OLD chain key, they cannot derive mk_a3
         // because the root key and chains were refreshed by Bob's DH ratchet.
     }

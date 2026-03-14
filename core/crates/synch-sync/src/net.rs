@@ -1,10 +1,10 @@
+use anyhow::Result;
+use futures_util::{SinkExt, StreamExt};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
 use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
-use futures_util::{StreamExt, SinkExt};
 use url::Url;
-use anyhow::Result;
 
 /// Represents the role of a connected relay server
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -35,6 +35,12 @@ pub struct RelayManager {
     // In a real app, we'd also have an event channel for incoming messages going UP to the application
 }
 
+impl Default for RelayManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl RelayManager {
     pub fn new() -> Self {
         Self {
@@ -50,16 +56,19 @@ impl RelayManager {
         }
 
         let (tx, rx) = mpsc::channel::<Vec<u8>>(100);
-        
+
         let config = RelayConfig {
             url: url.to_string(),
             role,
         };
 
-        conns.insert(url.to_string(), RelayConnection {
-            config: config.clone(),
-            tx,
-        });
+        conns.insert(
+            url.to_string(),
+            RelayConnection {
+                config: config.clone(),
+                tx,
+            },
+        );
 
         // Spawn connection task
         let url_clone = url.to_string();
@@ -106,7 +115,7 @@ impl RelayManager {
             match connect_async(&url).await {
                 Ok((ws_stream, _)) => {
                     let (mut write, mut read) = ws_stream.split();
-                    
+
                     loop {
                         tokio::select! {
                             // Check for outgoing messages

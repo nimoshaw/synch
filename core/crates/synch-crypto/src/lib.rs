@@ -7,17 +7,19 @@
 //!   - Blake3 (hashing & fingerprinting)
 //!   - NodeIdentity generation
 
+pub mod contract;
+pub mod encrypt;
 pub mod error;
+pub mod hash;
 pub mod identity;
 pub mod keys;
-pub mod encrypt;
-pub mod hash;
-pub mod contract;
 pub mod ratchet;
 
+pub use encrypt::{
+    decrypt_aes_gcm, decrypt_ratchet, encrypt_aes_gcm, encrypt_ratchet, EncryptedPayload,
+};
 pub use error::CryptoError;
+pub use hash::{blake3_fingerprint, blake3_hash};
 pub use identity::{NodeIdentity, NodeKey};
-pub use keys::{Ed25519KeyPair, X25519KeyPair, SharedSecret};
-pub use encrypt::{EncryptedPayload, encrypt_aes_gcm, decrypt_aes_gcm, encrypt_ratchet, decrypt_ratchet};
-pub use ratchet::{DoubleRatchet, ChainState};
-pub use hash::{blake3_hash, blake3_fingerprint};
+pub use keys::{Ed25519KeyPair, SharedSecret, X25519KeyPair};
+pub use ratchet::{ChainState, DoubleRatchet};

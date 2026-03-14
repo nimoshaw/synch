@@ -59,7 +59,7 @@ class SynchClient {
         console.log("[SynchClient] Received message, size:", data.byteLength);
         try {
             const syncMsg = SyncMessage.decode(data);
-            this.handleMessage(syncMsg, data);
+            this.handleMessage(syncMsg);
         } catch (e) {
             console.error("[SynchClient] Failed to decode message:", e);
         }
@@ -109,7 +109,7 @@ class SynchClient {
     return () => this.listeners.delete(listener);
   }
 
-  private handleMessage(msg: SyncMessage, _raw: Uint8Array) {
+  private handleMessage(msg: SyncMessage) {
     console.log(`[SynchClient] Processing message from ${msg.senderId}`);
     
     // 1. Handle Handshake

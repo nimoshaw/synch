@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use crate::error::SyncError;
+use serde::{Deserialize, Serialize};
 
 /// Operation type for a delta entry (mirrors proto EntryOperation)
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

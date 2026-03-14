@@ -1,14 +1,12 @@
-version: '3.8'
-
 services:
   relay:
     image: ghcr.io/${GITHUB_REPOSITORY:-synch}/relay:latest
     ports:
-      - "${SERVER_PORT:-8081}:8081"
+      - "${SYNCH_WS_PORT:-8080}:8080"
     env_file:
       - ../config/staging.env
-    depends_on:
-      - redis
+    volumes:
+      - synch_staging_data:/data
     networks:
       - synch_staging
     restart: always
@@ -17,18 +15,15 @@ services:
         limits:
           cpus: '0.50'
           memory: 256M
-
-  redis:
-    image: redis:7-alpine
-    networks:
-      - synch_staging
-    volumes:
-      - redis_staging_data:/data
-    restart: always
+    healthcheck:
+      test: ["CMD", "sh", "/app/healthcheck.sh"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
 networks:
   synch_staging:
     driver: bridge
 
 volumes:
-  redis_staging_data:
+  synch_staging_data:

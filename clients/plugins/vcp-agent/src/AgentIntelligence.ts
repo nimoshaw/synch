@@ -1,7 +1,7 @@
 export interface ToolDefinition {
   name: string;
   description: string;
-  parameters: any; // JSON Schema
+  parameters: Record<string, unknown>; // JSON Schema
 }
 
 export class AgentIntelligence {

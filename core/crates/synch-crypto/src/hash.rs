@@ -1,5 +1,4 @@
-/// Blake3 hashing utilities
-
+//! Blake3 hashing utilities
 /// Hash arbitrary data with Blake3, returns 32 bytes
 pub fn blake3_hash(data: &[u8]) -> [u8; 32] {
     *blake3::hash(data).as_bytes()

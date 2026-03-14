@@ -69,7 +69,7 @@ chown "$USER:$GROUP" "$CONFIG_DIR"
 cat <<EOF > /etc/systemd/system/synch-relay.service
 [Unit]
 Description=Synch Relay Server
-After=network.target redis-server.service
+After=network.target
 
 [Service]
 Type=simple

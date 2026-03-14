@@ -1,14 +1,12 @@
-version: '3.8'
-
 services:
   relay:
-    # Always pull a specific version tag for prod
     image: ghcr.io/${GITHUB_REPOSITORY:-synch}/relay:${APP_VERSION:-v0.1.0}
-    # No longer expose 8081 directly to host, nginx handles it
     expose:
       - "8080"
     env_file:
       - ../config/prod.env
+    volumes:
+      - synch_prod_data:/data
     networks:
       - synch_prod
     restart: always
@@ -44,25 +42,9 @@ services:
           cpus: '0.5'
           memory: 128M
 
-  # In a real production environment, Redis would likely be managed (e.g., AWS ElastiCache).
-  redis:
-    image: redis:7-alpine
-    command: ["redis-server", "--appendonly", "yes"]
-    networks:
-      - synch_prod
-    volumes:
-      - redis_prod_data:/data
-    restart: always
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 256M
-
 networks:
   synch_prod:
     driver: overlay
 
 volumes:
-  redis_prod_data:
-
+  synch_prod_data:

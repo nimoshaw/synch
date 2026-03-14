@@ -72,10 +72,7 @@ impl Vault {
 
     /// Get a snapshot of all live (non-deleted) entries
     pub fn live_entries(&self) -> Vec<&VaultEntry> {
-        self.entries
-            .values()
-            .filter(|e| !e.is_deleted())
-            .collect()
+        self.entries.values().filter(|e| !e.is_deleted()).collect()
     }
 
     /// Get an entry by path
@@ -92,10 +89,7 @@ impl Vault {
     pub fn deltas_since(&self, base_version: u64) -> Vec<&DeltaEntry> {
         // Simple approach: the delta_log is ordered by insertion
         // In a real system we'd track per-entry version numbers
-        self.delta_log
-            .iter()
-            .skip(base_version as usize)
-            .collect()
+        self.delta_log.iter().skip(base_version as usize).collect()
     }
 
     /// Apply a single DeltaEntry to the vault.
@@ -116,7 +110,7 @@ impl Vault {
             if existing_node != &entry.origin_node_id {
                 // Last-Write-Wins using modified_at timestamp (LWW strategy)
                 let existing_modified = existing.modified_at;
-                
+
                 if entry.modified_at < existing_modified {
                     // Incoming delta is older — record conflict and skip apply (local wins)
                     self.conflicts.push(ConflictRecord {
@@ -128,8 +122,9 @@ impl Vault {
                         remote_seq: entry.origin_sequence,
                         remote_hash: entry.content_hash.clone(),
                     });
-                    
-                    self.version_vector.update(&entry.origin_node_id, entry.origin_sequence);
+
+                    self.version_vector
+                        .update(&entry.origin_node_id, entry.origin_sequence);
                     self.delta_log.push(entry);
                     self.version += 1;
                     return Ok(());
@@ -226,7 +221,7 @@ impl Vault {
     /// catch up using only the delta log; they would need a full state transfer.
     pub fn compact_log(&mut self) {
         let mut latest_deltas: HashMap<String, usize> = HashMap::new();
-        
+
         // Find the index of the latest delta for each path
         for (i, entry) in self.delta_log.iter().enumerate() {
             latest_deltas.insert(entry.path.clone(), i);
@@ -322,11 +317,43 @@ mod tests {
         let node_a = "node-A";
 
         // Create, then modify multiple times
-        vault.apply_delta(DeltaEntry::new_create("a.txt", b"v1".to_vec(), node_a, 1, 1000)).unwrap();
-        vault.apply_delta(DeltaEntry::new_modify("a.txt", b"v2".to_vec(), node_a, 2, 1100)).unwrap();
-        vault.apply_delta(DeltaEntry::new_modify("a.txt", b"v3".to_vec(), node_a, 3, 1200)).unwrap();
-        
-        vault.apply_delta(DeltaEntry::new_create("b.txt", b"b1".to_vec(), node_a, 4, 1300)).unwrap();
+        vault
+            .apply_delta(DeltaEntry::new_create(
+                "a.txt",
+                b"v1".to_vec(),
+                node_a,
+                1,
+                1000,
+            ))
+            .unwrap();
+        vault
+            .apply_delta(DeltaEntry::new_modify(
+                "a.txt",
+                b"v2".to_vec(),
+                node_a,
+                2,
+                1100,
+            ))
+            .unwrap();
+        vault
+            .apply_delta(DeltaEntry::new_modify(
+                "a.txt",
+                b"v3".to_vec(),
+                node_a,
+                3,
+                1200,
+            ))
+            .unwrap();
+
+        vault
+            .apply_delta(DeltaEntry::new_create(
+                "b.txt",
+                b"b1".to_vec(),
+                node_a,
+                4,
+                1300,
+            ))
+            .unwrap();
 
         assert_eq!(vault.delta_log.len(), 4);
         assert_eq!(vault.version, 4);
@@ -338,9 +365,12 @@ mod tests {
         assert_eq!(vault.delta_log[0].path, "a.txt");
         assert_eq!(vault.delta_log[0].origin_sequence, 3);
         assert_eq!(vault.delta_log[1].path, "b.txt");
-        
+
         // Version (causal clock) should remain 4
         assert_eq!(vault.version, 4);
-        assert_eq!(vault.get_entry("a.txt").unwrap().content, Some(b"v3".to_vec()));
+        assert_eq!(
+            vault.get_entry("a.txt").unwrap().content,
+            Some(b"v3".to_vec())
+        );
     }
 }

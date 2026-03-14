@@ -1,6 +1,6 @@
 use crate::error::CryptoError;
 use crate::hash::blake3_fingerprint;
-use ed25519_dalek::{SigningKey, VerifyingKey, Signer, Verifier, Signature};
+use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
 use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
 use zeroize::ZeroizeOnDrop;
@@ -81,8 +81,8 @@ pub fn verify_ed25519(
     let pk_arr: [u8; 32] = public_key_bytes.try_into().unwrap();
     let sig_arr: [u8; 64] = signature_bytes.try_into().unwrap();
 
-    let verifying_key = VerifyingKey::from_bytes(&pk_arr)
-        .map_err(|e| CryptoError::Signing(e.to_string()))?;
+    let verifying_key =
+        VerifyingKey::from_bytes(&pk_arr).map_err(|e| CryptoError::Signing(e.to_string()))?;
     let signature = Signature::from_bytes(&sig_arr);
     verifying_key
         .verify(message, &signature)

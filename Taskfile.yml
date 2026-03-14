@@ -34,7 +34,7 @@ tasks:
     desc: 构建 Go 服务器二进制
     dir: server
     cmds:
-      - go build -o cmd/relay/relay cmd/relay/main.go
+      - go build -o cmd/relay/relay ./cmd/relay
 
   build:vcp-agent:
     desc: 构建 VCP 插件
@@ -51,9 +51,9 @@ tasks:
   debug:core:
     desc: 构建并测试 Rust 核心库 (带详细日志)
     dir: core
-    objs:
-      - RUST_LOG: debug
-      - RUST_BACKTRACE: 1
+    env:
+      RUST_LOG: debug
+      RUST_BACKTRACE: "1"
     cmds:
       - cargo test -- --nocapture
 
@@ -61,7 +61,7 @@ tasks:
     desc: 启动本地中继服务器 (JSON Debug Logs)
     dir: server
     cmds:
-      - go run cmd/relay/main.go -addr :8080 -log debug
+      - go run ./cmd/relay -addr :8080 -log debug
 
 
 

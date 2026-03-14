@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "outDir": "../dist-daemon",
+    "baseUrl": "..",
+    "paths": {
+      "@bufbuild/protobuf/wire": ["../node_modules/@bufbuild/protobuf/dist/esm/binary-encoding.d.ts"]
+    }
+  },
+  "include": ["**/*.ts", "../../../shared/ts-core/src/proto/v1/sync.ts"]
+}

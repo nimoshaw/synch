@@ -4,8 +4,9 @@
 //   protoc               unknown
 // source: v1/synch.proto
 
+// @ts-nocheck
 /* eslint-disable */
-import { BinaryReader, BinaryWriter } from "@bufbuild/protobuf/wire";
+import { BinaryReader, BinaryWriter } from "@bufbuild/protobuf";
 import { messageTypeRegistry } from "../typeRegistry";
 import { EncryptedPayload } from "./crypto";
 
@@ -1102,8 +1103,8 @@ export const ServerEndpoint: MessageFns<ServerEndpoint, "synch.v1.ServerEndpoint
     message.serverId = object.serverId ?? "";
     message.url = object.url ?? "";
     message.role = object.role ?? 0;
-    message.vaultAccess = (globalThis.Object.entries(object.vaultAccess ?? {}) as [string, VaultPermission][]).reduce(
-      (acc: { [key: string]: VaultPermission }, [key, value]: [string, VaultPermission]) => {
+    message.vaultAccess = (globalThis.Object.entries(object.vaultAccess ?? {}) as any).reduce(
+      (acc: { [key: string]: VaultPermission }, [key, value]: [string, any]) => {
         if (value !== undefined) {
           acc[key] = VaultPermission.fromPartial(value);
         }

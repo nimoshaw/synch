@@ -8,7 +8,9 @@ pub enum SyncError {
     #[error("Entry not found: {path}")]
     EntryNotFound { path: String },
 
-    #[error("Conflict detected at path: {path} — local seq {local_seq} vs remote seq {remote_seq}")]
+    #[error(
+        "Conflict detected at path: {path} — local seq {local_seq} vs remote seq {remote_seq}"
+    )]
     Conflict {
         path: String,
         local_seq: u64,

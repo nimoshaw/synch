@@ -25,8 +25,7 @@ const (
 )
 
 // SyncState 对应架构文档中的同步状态图:
-//
-//	IDLE → CONNECTING → AUTHENTICATING → SYNCING ⇄ SYNCED
+//   IDLE → CONNECTING → AUTHENTICATING → SYNCING ⇄ SYNCED
 type SyncState int32
 
 const (

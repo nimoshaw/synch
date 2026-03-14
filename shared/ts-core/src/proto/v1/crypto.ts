@@ -4,8 +4,9 @@
 //   protoc               unknown
 // source: v1/crypto.proto
 
+// @ts-nocheck
 /* eslint-disable */
-import { BinaryReader, BinaryWriter } from "@bufbuild/protobuf/wire";
+import { BinaryReader, BinaryWriter } from "@bufbuild/protobuf";
 import { messageTypeRegistry } from "../typeRegistry";
 
 export const protobufPackage = "synch.v1";

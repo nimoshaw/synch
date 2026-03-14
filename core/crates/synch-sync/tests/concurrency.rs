@@ -1,6 +1,6 @@
-use synch_sync::{Vault, DeltaEntry, EntryOperation};
 use std::sync::{Arc, Mutex};
 use std::thread;
+use synch_sync::{DeltaEntry, Vault};
 
 #[test]
 fn stress_test_concurrent_vault_access() {

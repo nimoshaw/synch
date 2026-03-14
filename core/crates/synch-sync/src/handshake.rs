@@ -1,6 +1,6 @@
-use synch_crypto::contract::Contract;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use synch_crypto::contract::Contract;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum HandshakeStatus {
@@ -23,6 +23,12 @@ pub struct HandshakeManager {
     pub handshakes: HashMap<String, HandshakeState>,
 }
 
+impl Default for HandshakeManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl HandshakeManager {
     pub fn new() -> Self {
         Self {
@@ -31,7 +37,8 @@ impl HandshakeManager {
     }
 
     pub fn update_state(&mut self, state: HandshakeState) {
-        self.handshakes.insert(state.contract.contract_id.clone(), state);
+        self.handshakes
+            .insert(state.contract.contract_id.clone(), state);
     }
 
     pub fn get_state(&self, contract_id: &str) -> Option<&HandshakeState> {
@@ -41,7 +48,9 @@ impl HandshakeManager {
     pub fn list_pending(&self) -> Vec<&HandshakeState> {
         self.handshakes
             .values()
-            .filter(|s| s.status == HandshakeStatus::Initiated || s.status == HandshakeStatus::Received)
+            .filter(|s| {
+                s.status == HandshakeStatus::Initiated || s.status == HandshakeStatus::Received
+            })
             .collect()
     }
 
