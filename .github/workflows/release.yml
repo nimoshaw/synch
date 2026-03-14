@@ -141,7 +141,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: '1.25'
 
       - name: Install protobuf
         uses: arduino/setup-protoc@v3
@@ -150,6 +150,7 @@ jobs:
         run: task proto:gen
 
       - name: Build binary
+        working-directory: server
         env:
           GOOS: ${{ contains(matrix.target, 'windows') && 'windows' || contains(matrix.target, 'darwin') && 'darwin' || 'linux' }}
           GOARCH: ${{ contains(matrix.target, 'arm64') && 'arm64' || 'amd64' }}
