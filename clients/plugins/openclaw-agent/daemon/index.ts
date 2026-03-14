@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { SynchClient } from '../../vcp-agent/daemon/SynchClient';
-import { NodeType } from '../../vcp-agent/daemon/proto/v1/sync.ts';
+import { NodeType } from '../../vcp-agent/daemon/proto/v1/synch';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

@@ -2,7 +2,8 @@ import WebSocket from 'ws';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { SyncMessage, PresenceUpdate, PresenceStatus, VaultHandshake, NodeType } from './proto/v1/sync.ts';
+import { SyncMessage, PresenceUpdate, PresenceStatus, VaultHandshake } from './proto/v1/sync';
+import { NodeType } from './proto/v1/synch';
 import { loadOrCreateExchangeKeys, PeerKeyStore, deriveSharedKey, decrypt, type KeyPair } from './crypto.js';
 
 type ConnectionState = "disconnected" | "connecting" | "connected" | "reconnecting";

@@ -1,5 +1,6 @@
 import { SynchClient } from './SynchClient';
-import { SyncMessage, NodeType, Contract, ContractStatus } from './proto/v1/sync.ts';
+import { SyncMessage, PresenceStatus } from './proto/v1/sync';
+import { NodeType, Contract, ContractStatus } from './proto/v1/synch';
 
 /**
  * ToolHandlers — VCP 工具执行处理器

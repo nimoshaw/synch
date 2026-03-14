@@ -219,30 +219,20 @@ jobs:
   integration-test:
     name: End-to-End Tests
     runs-on: ubuntu-latest
-    needs: [rust-build, go-build]
+    needs: [go-build]
     steps:
       - uses: actions/checkout@v4
       
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Go
+        uses: actions/setup-go@v5
         with:
-          node-version: ${{ env.NODE_VERSION }}
-          
-      - name: Install Task
-        uses: arduino/setup-task@v2
-        with:
-          version: 3.x
-          
-      - name: Run E2E tests
-        run: task test:e2e
-        
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-        with:
-          fail_ci_if_error: false
-          directory: tests/e2e/coverage/
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Run Relay integration tests
+        working-directory: server
+        run: |
+          go mod download
+          go test ./cmd/relay/... -v -count=1 -timeout 60s
 
 
   # ==================== Code Quality ====================

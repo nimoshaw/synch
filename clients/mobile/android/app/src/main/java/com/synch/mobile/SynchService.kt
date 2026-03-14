@@ -89,15 +89,13 @@ class SynchService : LifecycleService() {
                 reconnectAttempts = 0
                 updateNotification("已连接")
 
-                // Send initial handshake with our node ID
+                // Send handshake + presence using protobuf generated classes
                 val nodeId = SynchRepository.getOrCreateNodeId(this@SynchService)
                 val displayName = prefs.getString("display_name", "Android 用户") ?: "Android 用户"
                 SynchRepository.addEvent("节点 ID: $nodeId")
 
-                // Send identification message (protobuf binary)
-                // For now, send a simple text-encoded identification
-                // Full protobuf integration requires generated Java classes
                 SynchRepository.sendHandshake(ws, nodeId, displayName)
+                SynchRepository.sendPresence(nodeId, synch.v1.Sync.PresenceStatus.PRESENCE_STATUS_ONLINE)
             }
 
             override fun onMessage(ws: WebSocket, bytes: ByteString) {
